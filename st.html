@@ -52,7 +52,6 @@
             -moz-osx-font-smoothing: grayscale;
         }
 
-        /* ========== 主容器 ========== */
         .app-container {
             width: 100%;
             max-width: 780px;
@@ -61,7 +60,6 @@
             gap: 20px;
         }
 
-        /* ========== 头部 ========== */
         .header {
             text-align: center;
             padding: 16px 0 8px;
@@ -73,13 +71,8 @@
             animation: float 3s ease-in-out infinite;
         }
         @keyframes float {
-            0%,
-            100% {
-                transform: translateY(0);
-            }
-            50% {
-                transform: translateY(-8px);
-            }
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
         }
         .header h1 {
             font-size: 28px;
@@ -97,7 +90,6 @@
             font-weight: 400;
         }
 
-        /* ========== 卡片 ========== */
         .card {
             background: var(--card-bg);
             border-radius: var(--radius-xl);
@@ -134,18 +126,10 @@
             animation: pulse-dot 2s ease-in-out infinite;
         }
         @keyframes pulse-dot {
-            0%,
-            100% {
-                opacity: 1;
-                transform: scale(1);
-            }
-            50% {
-                opacity: 0.5;
-                transform: scale(1.6);
-            }
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.6); }
         }
 
-        /* ========== API密钥区域 ========== */
         .api-key-row {
             display: flex;
             align-items: center;
@@ -242,7 +226,6 @@
             color: #a16207;
         }
 
-        /* ========== 提示词输入 ========== */
         .prompt-textarea {
             width: 100%;
             min-height: 90px;
@@ -273,7 +256,6 @@
             margin-top: 4px;
         }
 
-        /* ========== 参数行 ========== */
         .params-row {
             display: flex;
             gap: 14px;
@@ -318,7 +300,6 @@
             background: #fff;
         }
 
-        /* ========== 生成按钮 ========== */
         .generate-btn {
             width: 100%;
             padding: 14px 24px;
@@ -358,7 +339,7 @@
         .generate-btn .spinner {
             width: 20px;
             height: 20px;
-            border: 2.5px solid rgba(255, 255, 255, 0.3);
+            border: 2.5px solid rgba(255,255,255,0.3);
             border-top-color: #fff;
             border-radius: 50%;
             animation: spin 0.7s linear infinite;
@@ -376,27 +357,14 @@
             font-weight: 500;
             animation: dots 1.4s steps(4, end) infinite;
         }
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes dots {
-            0% {
-                content: "正在生成";
-            }
-            25% {
-                content: "正在生成.";
-            }
-            50% {
-                content: "正在生成..";
-            }
-            75% {
-                content: "正在生成...";
-            }
+            0% { content: "正在生成"; }
+            25% { content: "正在生成."; }
+            50% { content: "正在生成.."; }
+            75% { content: "正在生成..."; }
         }
 
-        /* ========== 状态消息 ========== */
         .status-message {
             padding: 12px 16px;
             border-radius: var(--radius-sm);
@@ -405,9 +373,7 @@
             display: none;
             animation: fadeIn 0.3s ease;
         }
-        .status-message.visible {
-            display: block;
-        }
+        .status-message.visible { display: block; }
         .status-message.error {
             background: var(--error-bg);
             color: var(--error-text);
@@ -419,24 +385,12 @@
             border: 1px solid #bfdbfe;
         }
         @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(-6px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(-6px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        /* ========== 结果区域 ========== */
-        .results-section {
-            display: none;
-            animation: fadeIn 0.4s ease;
-        }
-        .results-section.visible {
-            display: block;
-        }
+        .results-section { display: none; animation: fadeIn 0.4s ease; }
+        .results-section.visible { display: block; }
         .results-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -475,12 +429,8 @@
             display: block;
             transition: opacity 0.4s ease;
         }
-        .result-item img.loading-img {
-            opacity: 0;
-        }
-        .result-item img.loaded {
-            opacity: 1;
-        }
+        .result-item img.loading-img { opacity: 0; }
+        .result-item img.loaded { opacity: 1; }
         .result-item .img-placeholder {
             position: absolute;
             inset: 0;
@@ -495,7 +445,7 @@
             position: absolute;
             top: 10px;
             left: 10px;
-            background: rgba(0, 0, 0, 0.55);
+            background: rgba(0,0,0,0.55);
             color: #fff;
             font-size: 11px;
             font-weight: 600;
@@ -508,7 +458,7 @@
         .result-item .hover-overlay {
             position: absolute;
             inset: 0;
-            background: rgba(0, 0, 0, 0.35);
+            background: rgba(0,0,0,0.35);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -517,20 +467,17 @@
             pointer-events: none;
             z-index: 1;
         }
-        .result-item:hover .hover-overlay {
-            opacity: 1;
-        }
+        .result-item:hover .hover-overlay { opacity: 1; }
         .hover-overlay .zoom-icon {
             color: #fff;
             font-size: 36px;
-            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
         }
 
-        /* ========== 灯箱 ========== */
         .lightbox {
             position: fixed;
             inset: 0;
-            background: rgba(0, 0, 0, 0.85);
+            background: rgba(0,0,0,0.85);
             z-index: 1000;
             display: flex;
             align-items: center;
@@ -543,7 +490,7 @@
             max-width: 92vw;
             max-height: 90vh;
             border-radius: var(--radius-lg);
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
             cursor: default;
             object-fit: contain;
         }
@@ -554,7 +501,7 @@
             width: 44px;
             height: 44px;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.12);
+            background: rgba(255,255,255,0.12);
             border: none;
             color: #fff;
             font-size: 22px;
@@ -568,7 +515,7 @@
             -webkit-backdrop-filter: blur(8px);
         }
         .lightbox .close-btn:hover {
-            background: rgba(255, 255, 255, 0.25);
+            background: rgba(255,255,255,0.25);
             transform: scale(1.05);
         }
         .lightbox .lightbox-actions {
@@ -583,8 +530,8 @@
         .lightbox .lightbox-actions button {
             padding: 10px 20px;
             border-radius: 24px;
-            border: 1.5px solid rgba(255, 255, 255, 0.35);
-            background: rgba(255, 255, 255, 0.1);
+            border: 1.5px solid rgba(255,255,255,0.35);
+            background: rgba(255,255,255,0.1);
             color: #fff;
             font-size: 13px;
             font-weight: 500;
@@ -598,11 +545,10 @@
             gap: 6px;
         }
         .lightbox .lightbox-actions button:hover {
-            background: rgba(255, 255, 255, 0.22);
-            border-color: rgba(255, 255, 255, 0.55);
+            background: rgba(255,255,255,0.22);
+            border-color: rgba(255,255,255,0.55);
         }
 
-        /* ========== 页脚 ========== */
         .footer {
             text-align: center;
             font-size: 12px;
@@ -614,11 +560,8 @@
             text-decoration: none;
             font-weight: 500;
         }
-        .footer a:hover {
-            text-decoration: underline;
-        }
+        .footer a:hover { text-decoration: underline; }
 
-        /* ========== Toast提示 ========== */
         .toast {
             position: fixed;
             bottom: 30px;
@@ -633,144 +576,69 @@
             z-index: 2000;
             pointer-events: none;
             transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.3);
             font-family: var(--font-stack);
         }
         .toast.show {
             transform: translateX(-50%) translateY(0);
         }
 
-        /* ========== 响应式 ========== */
         @media (max-width: 640px) {
-            body {
-                padding: 10px;
-            }
-            .app-container {
-                gap: 14px;
-            }
-            .card {
-                padding: 18px 16px;
-                border-radius: var(--radius-lg);
-            }
-            .header h1 {
-                font-size: 24px;
-            }
-            .header .logo-icon {
-                font-size: 32px;
-            }
-            .params-row {
-                flex-direction: column;
-                gap: 10px;
-            }
-            .param-group {
-                min-width: auto;
-            }
-            .results-grid {
-                grid-template-columns: 1fr !important;
-                gap: 10px;
-            }
-            .results-grid.double {
-                grid-template-columns: 1fr 1fr !important;
-                gap: 8px;
-            }
-            .generate-btn {
-                font-size: 15px;
-                padding: 12px 20px;
-            }
-            .api-key-row {
-                flex-direction: column;
-                align-items: stretch;
-            }
-            .api-key-input-wrapper {
-                min-width: auto;
-            }
-            .lightbox .close-btn {
-                top: 12px;
-                right: 12px;
-                width: 36px;
-                height: 36px;
-                font-size: 18px;
-            }
-            .lightbox .lightbox-actions {
-                bottom: 16px;
-                gap: 8px;
-            }
-            .lightbox .lightbox-actions button {
-                padding: 8px 14px;
-                font-size: 12px;
-                border-radius: 20px;
-            }
-            .result-item .img-index {
-                top: 6px;
-                left: 6px;
-                font-size: 10px;
-                padding: 3px 8px;
-            }
+            body { padding: 10px; }
+            .app-container { gap: 14px; }
+            .card { padding: 18px 16px; border-radius: var(--radius-lg); }
+            .header h1 { font-size: 24px; }
+            .header .logo-icon { font-size: 32px; }
+            .params-row { flex-direction: column; gap: 10px; }
+            .param-group { min-width: auto; }
+            .results-grid { grid-template-columns: 1fr !important; gap: 10px; }
+            .results-grid.double { grid-template-columns: 1fr 1fr !important; gap: 8px; }
+            .generate-btn { font-size: 15px; padding: 12px 20px; }
+            .api-key-row { flex-direction: column; align-items: stretch; }
+            .api-key-input-wrapper { min-width: auto; }
+            .lightbox .close-btn { top: 12px; right: 12px; width: 36px; height: 36px; font-size: 18px; }
+            .lightbox .lightbox-actions { bottom: 16px; gap: 8px; }
+            .lightbox .lightbox-actions button { padding: 8px 14px; font-size: 12px; border-radius: 20px; }
+            .result-item .img-index { top: 6px; left: 6px; font-size: 10px; padding: 3px 8px; }
         }
         @media (max-width: 380px) {
-            .results-grid.double {
-                grid-template-columns: 1fr !important;
-            }
-            .card {
-                padding: 14px 12px;
-            }
-            .prompt-textarea {
-                min-height: 70px;
-                font-size: 14px;
-            }
+            .results-grid.double { grid-template-columns: 1fr !important; }
+            .card { padding: 14px 12px; }
+            .prompt-textarea { min-height: 70px; font-size: 14px; }
         }
     </style>
 </head>
 <body>
 
-    <div class="app-container">
-        <!-- ==================== 头部 ==================== -->
-        <header class="header">
-            <span class="logo-icon">✨</span>
-            <h1>Agnes 文生图</h1>
-            <p class="subtitle">基于 Agnes Image 2.0 Flash · AI 驱动图像生成</p>
-        </header>
+<div class="app-container">
+    <header class="header">
+        <span class="logo-icon">✨</span>
+        <h1>Agnes 文生图</h1>
+        <p class="subtitle">基于 Agnes Image 2.0 Flash · AI 驱动图像生成</p>
+    </header>
 
-        <!-- ==================== API密钥卡片 ==================== -->
-        <div class="card" id="apiKeyCard">
-            <div class="card-header">
-                <span class="section-title">
-                    <span class="dot"></span> API 密钥配置
-                </span>
-                <span class="key-status unset" id="keyStatus">⚠️ 未设置</span>
-            </div>
-            <div class="api-key-row">
-                <div class="api-key-input-wrapper">
-                    <input
-                    type="password"
-                    id="apiKeyInput"
-                    placeholder="请输入您的 Agnes API 密钥 (sk-...)"
-                    autocomplete="off"
-                    spellcheck="false"
-                    >
-                    <button class="toggle-visibility" id="toggleKeyVisibility" title="显示/隐藏密钥" type="button">
-                        👁️
-                    </button>
-                </div>
-                <button class="btn-sm save-btn" id="saveKeyBtn" type="button">💾 保存密钥</button>
-                <button class="btn-sm" id="clearKeyBtn" type="button">🗑️ 清除</button>
-            </div>
+    <div class="card" id="apiKeyCard">
+        <div class="card-header">
+            <span class="section-title"><span class="dot"></span> API 密钥配置</span>
+            <span class="key-status unset" id="keyStatus">⚠️ 未设置</span>
         </div>
-
-        <!-- ==================== 输入卡片 ==================== -->
-        <div class="card" id="inputCard">
-            <div class="card-header">
-                <span class="section-title">📝 提示词</span>
-                <span class="char-count" id="charCount">0 / 4000</span>
+        <div class="api-key-row">
+            <div class="api-key-input-wrapper">
+                <input type="password" id="apiKeyInput" placeholder="请输入您的 Agnes API 密钥 (sk-...)" autocomplete="off" spellcheck="false">
+                <button class="toggle-visibility" id="toggleKeyVisibility" title="显示/隐藏密钥" type="button">👁️</button>
             </div>
-            <textarea
-            class="prompt-textarea"
-            id="promptInput"
-            placeholder="描述你想生成的图像，越详细效果越好...&#10;&#10;例如：一只毛茸茸的橘猫坐在窗台上，温暖的阳光透过百叶窗洒在它身上，柔和的阴影，高清摄影风格，背景是温馨的室内环境"
-            maxlength="4000"
-        ></textarea>
+            <button class="btn-sm save-btn" id="saveKeyBtn" type="button">💾 保存密钥</button>
+            <button class="btn-sm" id="clearKeyBtn" type="button">🗑️ 清除</button>
+        </div>
+    </div>
 
-        <!-- 参数选择 -->
+    <div class="card" id="inputCard">
+        <div class="card-header">
+            <span class="section-title">📝 提示词</span>
+            <span class="char-count" id="charCount">0 / 4000</span>
+        </div>
+        <textarea class="prompt-textarea" id="promptInput" placeholder="描述你想生成的图像，越详细效果越好...&#10;&#10;例如：一只毛茸茸的橘猫坐在窗台上，温暖的阳光透过百叶窗洒在它身上，柔和的阴影，高清摄影风格，背景是温馨的室内环境" maxlength="4000"></textarea>
+
         <div class="params-row">
             <div class="param-group">
                 <label for="sizeSelect">📐 图片尺寸</label>
@@ -791,17 +659,14 @@
             </div>
         </div>
 
-        <!-- 生成按钮 -->
         <button class="generate-btn" id="generateBtn" type="button">
             <span class="spinner"></span>
             <span class="btn-text">🚀 生成图片</span>
         </button>
 
-        <!-- 状态消息 -->
         <div class="status-message" id="statusMsg"></div>
     </div>
 
-    <!-- ==================== 结果区域 ==================== -->
     <div class="results-section" id="resultsSection">
         <div class="card">
             <div class="card-header">
@@ -812,21 +677,15 @@
         </div>
     </div>
 
-    <!-- ==================== 页脚 ==================== -->
     <footer class="footer">
         基于 <a href="https://agnes-ai.com/zh-Hans/docs/agnes-image-20-flash" target="_blank" rel="noopener noreferrer">Agnes Image 2.0 Flash API</a> · 图片由 AI 生成
     </footer>
 </div>
 
-<!-- ==================== 灯箱（动态创建） ==================== -->
-<!-- 灯箱将在JS中动态创建 -->
-
-<!-- ==================== Toast提示 ==================== -->
 <div class="toast" id="toast"></div>
 
 <script>
     (function() {
-        // ============ DOM引用 ============
         const apiKeyInput = document.getElementById('apiKeyInput');
         const toggleKeyVisibilityBtn = document.getElementById('toggleKeyVisibility');
         const saveKeyBtn = document.getElementById('saveKeyBtn');
@@ -843,12 +702,10 @@
         const resultInfo = document.getElementById('resultInfo');
         const toast = document.getElementById('toast');
 
-        // ============ 状态 ============
         let apiKey = '';
         let isGenerating = false;
         let lightboxEl = null;
 
-        // ============ 初始化：从localStorage加载密钥 ============
         function loadApiKey() {
             const stored = localStorage.getItem('agnes_api_key');
             if (stored) {
@@ -872,45 +729,33 @@
             }
         }
 
-        // ============ Toast ============
         let toastTimer;
-
         function showToast(message, duration = 2500) {
             clearTimeout(toastTimer);
             toast.textContent = message;
             toast.classList.add('show');
-            toastTimer = setTimeout(() => {
-                toast.classList.remove('show');
-            }, duration);
+            toastTimer = setTimeout(() => toast.classList.remove('show'), duration);
         }
 
-        // ============ 状态消息 ============
         function showStatus(message, type = 'info') {
             statusMsg.textContent = message;
             statusMsg.className = 'status-message visible ' + type;
         }
-
         function hideStatus() {
             statusMsg.className = 'status-message';
         }
 
-        // ============ 密钥可见性切换 ============
         toggleKeyVisibilityBtn.addEventListener('click', () => {
             const isPassword = apiKeyInput.type === 'password';
             apiKeyInput.type = isPassword ? 'text' : 'password';
             toggleKeyVisibilityBtn.textContent = isPassword ? '🙈' : '👁️';
         });
 
-        // ============ 保存密钥 ============
         saveKeyBtn.addEventListener('click', () => {
             const key = apiKeyInput.value.trim();
             if (!key) {
                 showToast('⚠️ 请输入有效的 API 密钥');
                 return;
-            }
-            if (!key.startsWith('sk-') && !key.startsWith('ag-')) {
-                showToast('⚠️ 密钥格式可能不正确，请检查（通常以 sk- 或 ag- 开头）');
-                // 仍然允许保存
             }
             apiKey = key;
             localStorage.setItem('agnes_api_key', key);
@@ -919,7 +764,6 @@
             showToast('✅ API 密钥已保存');
         });
 
-        // ============ 清除密钥 ============
         clearKeyBtn.addEventListener('click', () => {
             apiKey = '';
             apiKeyInput.value = '';
@@ -929,71 +773,43 @@
             showToast('🗑️ API 密钥已清除');
         });
 
-        // ============ 字符计数 ============
         promptInput.addEventListener('input', () => {
             const len = promptInput.value.length;
             charCount.textContent = `${len} / 4000`;
-            if (len > 3800) {
-                charCount.style.color = '#f59e0b';
-            } else if (len > 3950) {
-                charCount.style.color = '#dc2626';
-            } else {
-                charCount.style.color = '';
-            }
+            if (len > 3800) charCount.style.color = '#f59e0b';
+            else if (len > 3950) charCount.style.color = '#dc2626';
+            else charCount.style.color = '';
         });
 
-        // ============ 灯箱 ============
         function openLightbox(imageUrl) {
-            // 移除旧灯箱
-            if (lightboxEl) {
-                lightboxEl.remove();
-                lightboxEl = null;
-            }
-
+            if (lightboxEl) { lightboxEl.remove(); lightboxEl = null; }
             lightboxEl = document.createElement('div');
             lightboxEl.className = 'lightbox';
             lightboxEl.innerHTML = `
-                    <button class="close-btn" title="关闭 (ESC)">✕</button>
-                    <img src="${imageUrl}" alt="生成图片预览" />
-                    <div class="lightbox-actions">
-                        <button id="lightboxOpenBtn" title="在新标签页打开">🔗 打开原图</button>
-                        <button id="lightboxDownloadBtn" title="下载图片">⬇️ 下载</button>
-                    </div>
-                `;
+                <button class="close-btn" title="关闭 (ESC)">✕</button>
+                <img src="${imageUrl}" alt="生成图片预览" />
+                <div class="lightbox-actions">
+                    <button id="lightboxOpenBtn" title="在新标签页打开">🔗 打开原图</button>
+                    <button id="lightboxDownloadBtn" title="下载图片">⬇️ 下载</button>
+                </div>
+            `;
             document.body.appendChild(lightboxEl);
 
-            // 关闭事件
-            const closeBtn = lightboxEl.querySelector('.close-btn');
             const closeLightbox = () => {
-                if (lightboxEl) {
-                    lightboxEl.remove();
-                    lightboxEl = null;
-                    document.removeEventListener('keydown', escHandler);
-                }
+                if (lightboxEl) { lightboxEl.remove(); lightboxEl = null; }
+                document.removeEventListener('keydown', escHandler);
             };
-
-            const escHandler = (e) => {
-                if (e.key === 'Escape') closeLightbox();
-            };
-
-            lightboxEl.addEventListener('click', (e) => {
-                if (e.target === lightboxEl) closeLightbox();
-            });
-            closeBtn.addEventListener('click', closeLightbox);
+            const escHandler = (e) => { if (e.key === 'Escape') closeLightbox(); };
+            lightboxEl.addEventListener('click', (e) => { if (e.target === lightboxEl) closeLightbox(); });
+            lightboxEl.querySelector('.close-btn').addEventListener('click', closeLightbox);
             document.addEventListener('keydown', escHandler);
 
-            // 打开原图
-            const openBtn = lightboxEl.querySelector('#lightboxOpenBtn');
-            openBtn.addEventListener('click', (e) => {
+            lightboxEl.querySelector('#lightboxOpenBtn').addEventListener('click', (e) => {
                 e.stopPropagation();
                 window.open(imageUrl, '_blank', 'noopener,noreferrer');
             });
-
-            // 下载按钮
-            const downloadBtn = lightboxEl.querySelector('#lightboxDownloadBtn');
-            downloadBtn.addEventListener('click', (e) => {
+            lightboxEl.querySelector('#lightboxDownloadBtn').addEventListener('click', (e) => {
                 e.stopPropagation();
-                // 尝试通过fetch下载（可能受CORS限制）
                 fetch(imageUrl, { mode: 'cors' })
                     .then(res => res.blob())
                     .then(blob => {
@@ -1008,109 +824,68 @@
                         showToast('✅ 图片下载中...');
                     })
                     .catch(() => {
-                        // 如果fetch失败（CORS），回退到打开图片
                         showToast('⚠️ 无法直接下载，正在打开原图...');
                         window.open(imageUrl, '_blank', 'noopener,noreferrer');
                     });
             });
-
-            // 防止图片点击关闭灯箱
-            const imgEl = lightboxEl.querySelector('img');
-            imgEl.addEventListener('click', (e) => {
-                e.stopPropagation();
-            });
+            lightboxEl.querySelector('img').addEventListener('click', (e) => e.stopPropagation());
         }
 
-        // ============ 渲染结果 ============
         function renderResults(imageUrls, promptUsed, sizeUsed) {
             resultsGrid.innerHTML = '';
             const count = imageUrls.length;
-
-            // 设置网格类
             resultsGrid.classList.remove('single', 'double');
-            if (count === 1) {
-                resultsGrid.classList.add('single');
-            } else if (count === 2) {
-                resultsGrid.classList.add('double');
-            }
+            if (count === 1) resultsGrid.classList.add('single');
+            else if (count === 2) resultsGrid.classList.add('double');
 
             imageUrls.forEach((url, index) => {
                 const item = document.createElement('div');
                 item.className = 'result-item';
                 item.innerHTML = `
-                        <span class="img-index">#${index + 1}</span>
-                        <div class="img-placeholder">🖼️</div>
-                        <div class="hover-overlay">
-                            <span class="zoom-icon">🔍</span>
-                        </div>
-                        <img
-                            src="${url}"
-                            alt="生成图片 ${index + 1}"
-                            class="loading-img"
-                            loading="lazy"
-                        />
-                    `;
+                    <span class="img-index">#${index + 1}</span>
+                    <div class="img-placeholder">🖼️</div>
+                    <div class="hover-overlay"><span class="zoom-icon">🔍</span></div>
+                    <img src="${url}" alt="生成图片 ${index + 1}" class="loading-img" loading="lazy" />
+                `;
                 const img = item.querySelector('img');
                 const placeholder = item.querySelector('.img-placeholder');
-
-                // 图片加载完成
                 img.addEventListener('load', () => {
                     img.classList.remove('loading-img');
                     img.classList.add('loaded');
                     if (placeholder) placeholder.style.display = 'none';
                 });
-
-                // 图片加载失败
                 img.addEventListener('error', () => {
-                    if (placeholder) {
-                        placeholder.textContent = '⚠️';
-                        placeholder.style.color = '#f87171';
-                    }
+                    if (placeholder) { placeholder.textContent = '⚠️'; placeholder.style.color = '#f87171'; }
                     img.style.display = 'none';
                 });
-
-                // 如果图片已缓存（立即加载完成）
                 if (img.complete && img.naturalWidth > 0) {
                     img.classList.remove('loading-img');
                     img.classList.add('loaded');
                     if (placeholder) placeholder.style.display = 'none';
                 }
-
-                // 点击打开灯箱
-                item.addEventListener('click', () => {
-                    openLightbox(url);
-                });
-
+                item.addEventListener('click', () => openLightbox(url));
                 resultsGrid.appendChild(item);
             });
 
             resultInfo.textContent = `提示词: "${promptUsed.slice(0, 40)}${promptUsed.length > 40 ? '...' : ''}" · 尺寸: ${sizeUsed}`;
             resultsSection.classList.add('visible');
-
-            // 平滑滚动到结果
             resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
-        // ============ 调用API ============
         async function generateImages() {
             if (isGenerating) return;
-
-            // 验证密钥
             if (!apiKey) {
                 showStatus('⚠️ 请先设置 API 密钥后再生成图片', 'error');
-                // 滚动到密钥卡片
                 document.getElementById('apiKeyCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
                 apiKeyInput.focus();
                 return;
             }
-
             const prompt = promptInput.value.trim();
             if (!prompt) {
                 showStatus('⚠️ 请输入图片描述（提示词）', 'error');
                 promptInput.focus();
                 return;
             }
-
             if (prompt.length < 3) {
                 showStatus('⚠️ 提示词太短，请提供更详细的描述（至少3个字符）', 'error');
                 promptInput.focus();
@@ -1119,8 +894,6 @@
 
             const size = sizeSelect.value;
             const n = parseInt(countSelect.value, 10);
-
-            // 开始生成
             isGenerating = true;
             generateBtn.classList.add('loading');
             generateBtn.disabled = true;
@@ -1128,10 +901,11 @@
             resultsSection.classList.remove('visible');
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 120000); // 120秒超时
+            const timeoutId = setTimeout(() => controller.abort(), 120000);
 
             try {
-                const response = await fetch('https://api.agnes-ai.com/v1/images/generations', {
+                // ★★★ 修改点：使用您的 Cloudflare Worker 代理地址 ★★★
+                const response = await fetch('https://api.chatlz.dpdns.org/v1/images/generations', {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${apiKey}`,
@@ -1152,70 +926,41 @@
                     const errorData = await response.json().catch(() => ({}));
                     let errorMsg = '';
                     switch (response.status) {
-                        case 400:
-                            errorMsg = '请求参数错误，请检查提示词或参数设置';
-                            break;
-                        case 401:
-                            errorMsg = 'API 密钥无效或已过期，请检查密钥设置';
-                            break;
-                        case 402:
-                            errorMsg = '账户余额不足，请充值后重试';
-                            break;
-                        case 429:
-                            errorMsg = '请求过于频繁，请稍后重试';
-                            break;
-                        case 500:
-                            errorMsg = '服务器内部错误，请稍后重试';
-                            break;
-                        case 503:
-                            errorMsg = '服务暂时不可用，请稍后重试';
-                            break;
-                        default:
-                            errorMsg = `请求失败 (HTTP ${response.status})`;
+                        case 400: errorMsg = '请求参数错误，请检查提示词或参数设置'; break;
+                        case 401: errorMsg = 'API 密钥无效或已过期，请检查密钥设置'; break;
+                        case 402: errorMsg = '账户余额不足，请充值后重试'; break;
+                        case 429: errorMsg = '请求过于频繁，请稍后重试'; break;
+                        case 500: errorMsg = '服务器内部错误，请稍后重试'; break;
+                        case 503: errorMsg = '服务暂时不可用，请稍后重试'; break;
+                        default: errorMsg = `请求失败 (HTTP ${response.status})`;
                     }
-                    if (errorData.error && errorData.error.message) {
-                        errorMsg += `: ${errorData.error.message}`;
-                    }
+                    if (errorData.error && errorData.error.message) errorMsg += `: ${errorData.error.message}`;
                     throw new Error(errorMsg);
                 }
 
                 const data = await response.json();
-
-                // 解析返回的图片URL
                 if (!data.data || !Array.isArray(data.data) || data.data.length === 0) {
                     throw new Error('API 返回数据格式异常，未包含图片信息');
                 }
-
                 const imageUrls = data.data
                     .map(item => item.url || item.b64_json || null)
                     .filter(Boolean);
+                if (imageUrls.length === 0) throw new Error('API 未返回有效的图片地址');
 
-                if (imageUrls.length === 0) {
-                    throw new Error('API 未返回有效的图片地址');
-                }
-
-                // 处理base64格式
                 const processedUrls = imageUrls.map(url => {
-                    if (url.startsWith('data:image')) {
-                        return url; // 已经是data URL
-                    }
-                    if (url.startsWith('http://') || url.startsWith('https://')) {
-                        return url;
-                    }
-                    // 假设是base64字符串，添加前缀
+                    if (url.startsWith('data:image') || url.startsWith('http://') || url.startsWith('https://')) return url;
                     return `data:image/png;base64,${url}`;
                 });
 
-                // 渲染结果
                 renderResults(processedUrls, prompt, size);
                 showToast(`✅ 成功生成 ${processedUrls.length} 张图片！`);
 
             } catch (error) {
                 clearTimeout(timeoutId);
                 if (error.name === 'AbortError') {
-                    showStatus('⏰ 请求超时（120秒），图片生成可能需要更长时间，请重试', 'error');
+                    showStatus('⏰ 请求超时（120秒），请重试', 'error');
                 } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-                    showStatus('🌐 网络连接失败，请检查网络后重试', 'error');
+                    showStatus('🌐 网络连接失败，请检查网络或代理状态', 'error');
                 } else {
                     showStatus(`❌ ${error.message}`, 'error');
                 }
@@ -1227,10 +972,8 @@
             }
         }
 
-        // ============ 生成按钮点击 ============
         generateBtn.addEventListener('click', generateImages);
 
-        // ============ 快捷键：Ctrl/Cmd + Enter 触发生成 ============
         promptInput.addEventListener('keydown', (e) => {
             if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
                 e.preventDefault();
@@ -1238,31 +981,14 @@
             }
         });
 
-        // ============ 页面加载初始化 ============
         function init() {
             loadApiKey();
-            // 如果没有密钥，稍微高亮提示
-            if (!apiKey) {
-                setTimeout(() => {
-                    apiKeyInput.focus();
-                }, 600);
-            }
-            // 初始化字符计数
-            charCount.textContent = `0 / 4000`;
+            if (!apiKey) setTimeout(() => apiKeyInput.focus(), 600);
+            charCount.textContent = '0 / 4000';
+            console.log('✅ Agnes 文生图页面已就绪 (代理模式)');
+            console.log('   代理地址: https://api.chatlz.dpdns.org/v1/images/generations');
         }
-
         init();
-
-        // ============ 暴露方法到全局（调试用） ============
-        console.log('✅ Agnes 文生图页面已就绪');
-        console.log('   API端点: https://api.agnes-ai.com/v1/images/generations');
-        console.log('   模型: agnes-image-20-flash');
-        console.log('   提示: 使用 Ctrl+Enter 快捷键快速生成');
-        if (!apiKey) {
-            console.warn('   ⚠️ 尚未设置API密钥，请先配置密钥');
-        } else {
-            console.log('   🔑 API密钥已配置');
-        }
     })();
 </script>
 </body>
