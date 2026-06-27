@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agnes 文生图 - AI 图像生成</title>
+    <style>
+        :root {
+            --bg: #f5f5f7;
+            --card-bg: #ffffff;
+            --text-primary: #1d1d1f;
+            --text-secondary: #6e6e73;
+            --text-tertiary: #86868b;
+            --border: #e5e5e7;
+            --border-focus: #4f46e5;
+            --accent: #4f46e5;
+            --accent-hover: #4338ca;
+            --accent-light: #eef2ff;
+            --gradient-btn: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            --gradient-btn-hover: linear-gradient(135deg, #4338ca 0%, #6d28d9 100%);
+            --error-bg: #fef2f2;
+            --error-text: #dc2626;
+            --error-border: #fecaca;
+            --success-bg: #f0fdf4;
+            --success-text: #16a34a;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+            --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.12);
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+            --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-stack);
+            background: var(--bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* ========== 主容器 ========== */
+        .app-container {
+            width: 100%;
+            max-width: 780px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* ========== 头部 ========== */
+        .header {
+            text-align: center;
+            padding: 16px 0 8px;
+        }
+        .header .logo-icon {
+            font-size: 40px;
+            margin-bottom: 6px;
+            display: block;
+            animation: float 3s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-8px);
+            }
+        }
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            background: var(--gradient-btn);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .header .subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+            font-weight: 400;
+        }
+
+        /* ========== 卡片 ========== */
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--radius-xl);
+            padding: 24px 28px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+            transition: box-shadow var(--transition);
+        }
+        .card:hover {
+            box-shadow: var(--shadow-md);
+        }
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .card-header .section-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card-header .section-title .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4f46e5;
+            display: inline-block;
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+        @keyframes pulse-dot {
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.5;
+                transform: scale(1.6);
+            }
+        }
+
+        /* ========== API密钥区域 ========== */
+        .api-key-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .api-key-input-wrapper {
+            position: relative;
+            flex: 1;
+            min-width: 200px;
+        }
+        .api-key-input-wrapper input {
+            width: 100%;
+            padding: 10px 40px 10px 14px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-family: var(--font-stack);
+            transition: all var(--transition);
+            background: #fafafa;
+            color: var(--text-primary);
+            letter-spacing: 0.02em;
+        }
+        .api-key-input-wrapper input:focus {
+            outline: none;
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.08);
+            background: #fff;
+        }
+        .api-key-input-wrapper input::placeholder {
+            color: #c4c4c8;
+            letter-spacing: normal;
+        }
+        .toggle-visibility {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-tertiary);
+            font-size: 16px;
+            padding: 4px;
+            line-height: 1;
+            border-radius: 4px;
+            transition: color var(--transition);
+        }
+        .toggle-visibility:hover {
+            color: var(--text-primary);
+        }
+        .btn-sm {
+            padding: 10px 16px;
+            font-size: 13px;
+            font-weight: 500;
+            border-radius: var(--radius-sm);
+            border: 1.5px solid var(--border);
+            cursor: pointer;
+            transition: all var(--transition);
+            white-space: nowrap;
+            background: #fff;
+            color: var(--text-primary);
+            font-family: var(--font-stack);
+        }
+        .btn-sm:hover {
+            background: #f5f5f7;
+            border-color: #d4d4d8;
+        }
+        .btn-sm.save-btn {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent);
+            font-weight: 600;
+        }
+        .btn-sm.save-btn:hover {
+            background: var(--accent-hover);
+            border-color: var(--accent-hover);
+        }
+        .key-status {
+            font-size: 12px;
+            font-weight: 500;
+            padding: 4px 10px;
+            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .key-status.set {
+            background: var(--success-bg);
+            color: var(--success-text);
+        }
+        .key-status.unset {
+            background: #fefce8;
+            color: #a16207;
+        }
+
+        /* ========== 提示词输入 ========== */
+        .prompt-textarea {
+            width: 100%;
+            min-height: 90px;
+            padding: 14px 16px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-md);
+            font-size: 15px;
+            font-family: var(--font-stack);
+            resize: vertical;
+            transition: all var(--transition);
+            background: #fafafa;
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+        .prompt-textarea:focus {
+            outline: none;
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.08);
+            background: #fff;
+        }
+        .prompt-textarea::placeholder {
+            color: #c4c4c8;
+        }
+        .char-count {
+            text-align: right;
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-top: 4px;
+        }
+
+        /* ========== 参数行 ========== */
+        .params-row {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin-top: 14px;
+        }
+        .param-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            min-width: 120px;
+            flex: 1;
+        }
+        .param-group label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .param-group select {
+            padding: 10px 12px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-family: var(--font-stack);
+            background: #fafafa;
+            cursor: pointer;
+            transition: all var(--transition);
+            color: var(--text-primary);
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2386868b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 36px;
+        }
+        .param-group select:focus {
+            outline: none;
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.08);
+            background: #fff;
+        }
+
+        /* ========== 生成按钮 ========== */
+        .generate-btn {
+            width: 100%;
+            padding: 14px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            font-family: var(--font-stack);
+            color: #fff;
+            background: var(--gradient-btn);
+            border: none;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all var(--transition);
+            letter-spacing: 0.01em;
+            position: relative;
+            overflow: hidden;
+            margin-top: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .generate-btn:hover:not(:disabled) {
+            background: var(--gradient-btn-hover);
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-1px);
+        }
+        .generate-btn:active:not(:disabled) {
+            transform: translateY(0);
+            box-shadow: var(--shadow-md);
+        }
+        .generate-btn:disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        .generate-btn .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2.5px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            display: none;
+        }
+        .generate-btn.loading .spinner {
+            display: block;
+        }
+        .generate-btn.loading .btn-text {
+            display: none;
+        }
+        .generate-btn.loading::after {
+            content: "正在生成...";
+            color: #fff;
+            font-weight: 500;
+            animation: dots 1.4s steps(4, end) infinite;
+        }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        @keyframes dots {
+            0% {
+                content: "正在生成";
+            }
+            25% {
+                content: "正在生成.";
+            }
+            50% {
+                content: "正在生成..";
+            }
+            75% {
+                content: "正在生成...";
+            }
+        }
+
+        /* ========== 状态消息 ========== */
+        .status-message {
+            padding: 12px 16px;
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-weight: 500;
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        .status-message.visible {
+            display: block;
+        }
+        .status-message.error {
+            background: var(--error-bg);
+            color: var(--error-text);
+            border: 1px solid var(--error-border);
+        }
+        .status-message.info {
+            background: #eff6ff;
+            color: #2563eb;
+            border: 1px solid #bfdbfe;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-6px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ========== 结果区域 ========== */
+        .results-section {
+            display: none;
+            animation: fadeIn 0.4s ease;
+        }
+        .results-section.visible {
+            display: block;
+        }
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+        }
+        .results-grid.single {
+            grid-template-columns: 1fr;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        .results-grid.double {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        .result-item {
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            background: #fafafa;
+            border: 1px solid var(--border);
+            cursor: pointer;
+            transition: all var(--transition);
+            position: relative;
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .result-item:hover {
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-3px);
+            border-color: #d4d4d8;
+        }
+        .result-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+            transition: opacity 0.4s ease;
+        }
+        .result-item img.loading-img {
+            opacity: 0;
+        }
+        .result-item img.loaded {
+            opacity: 1;
+        }
+        .result-item .img-placeholder {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #d4d4d8;
+            font-size: 40px;
+            pointer-events: none;
+        }
+        .result-item .img-index {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.55);
+            color: #fff;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 20px;
+            letter-spacing: 0.03em;
+            pointer-events: none;
+            z-index: 2;
+        }
+        .result-item .hover-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity var(--transition);
+            pointer-events: none;
+            z-index: 1;
+        }
+        .result-item:hover .hover-overlay {
+            opacity: 1;
+        }
+        .hover-overlay .zoom-icon {
+            color: #fff;
+            font-size: 36px;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+        }
+
+        /* ========== 灯箱 ========== */
+        .lightbox {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.25s ease;
+            cursor: pointer;
+            padding: 20px;
+        }
+        .lightbox img {
+            max-width: 92vw;
+            max-height: 90vh;
+            border-radius: var(--radius-lg);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            cursor: default;
+            object-fit: contain;
+        }
+        .lightbox .close-btn {
+            position: absolute;
+            top: 20px;
+            right: 24px;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.12);
+            border: none;
+            color: #fff;
+            font-size: 22px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition);
+            z-index: 1001;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+        .lightbox .close-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: scale(1.05);
+        }
+        .lightbox .lightbox-actions {
+            position: absolute;
+            bottom: 28px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 12px;
+            z-index: 1001;
+        }
+        .lightbox .lightbox-actions button {
+            padding: 10px 20px;
+            border-radius: 24px;
+            border: 1.5px solid rgba(255, 255, 255, 0.35);
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            transition: all var(--transition);
+            font-family: var(--font-stack);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .lightbox .lightbox-actions button:hover {
+            background: rgba(255, 255, 255, 0.22);
+            border-color: rgba(255, 255, 255, 0.55);
+        }
+
+        /* ========== 页脚 ========== */
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-tertiary);
+            padding: 8px 0 20px;
+        }
+        .footer a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* ========== Toast提示 ========== */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: #1d1d1f;
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 24px;
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 2000;
+            pointer-events: none;
+            transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+            font-family: var(--font-stack);
+        }
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* ========== 响应式 ========== */
+        @media (max-width: 640px) {
+            body {
+                padding: 10px;
+            }
+            .app-container {
+                gap: 14px;
+            }
+            .card {
+                padding: 18px 16px;
+                border-radius: var(--radius-lg);
+            }
+            .header h1 {
+                font-size: 24px;
+            }
+            .header .logo-icon {
+                font-size: 32px;
+            }
+            .params-row {
+                flex-direction: column;
+                gap: 10px;
+            }
+            .param-group {
+                min-width: auto;
+            }
+            .results-grid {
+                grid-template-columns: 1fr !important;
+                gap: 10px;
+            }
+            .results-grid.double {
+                grid-template-columns: 1fr 1fr !important;
+                gap: 8px;
+            }
+            .generate-btn {
+                font-size: 15px;
+                padding: 12px 20px;
+            }
+            .api-key-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .api-key-input-wrapper {
+                min-width: auto;
+            }
+            .lightbox .close-btn {
+                top: 12px;
+                right: 12px;
+                width: 36px;
+                height: 36px;
+                font-size: 18px;
+            }
+            .lightbox .lightbox-actions {
+                bottom: 16px;
+                gap: 8px;
+            }
+            .lightbox .lightbox-actions button {
+                padding: 8px 14px;
+                font-size: 12px;
+                border-radius: 20px;
+            }
+            .result-item .img-index {
+                top: 6px;
+                left: 6px;
+                font-size: 10px;
+                padding: 3px 8px;
+            }
+        }
+        @media (max-width: 380px) {
+            .results-grid.double {
+                grid-template-columns: 1fr !important;
+            }
+            .card {
+                padding: 14px 12px;
+            }
+            .prompt-textarea {
+                min-height: 70px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- ==================== 头部 ==================== -->
+        <header class="header">
+            <span class="logo-icon">✨</span>
+            <h1>Agnes 文生图</h1>
+            <p class="subtitle">基于 Agnes Image 2.0 Flash · AI 驱动图像生成</p>
+        </header>
+
+        <!-- ==================== API密钥卡片 ==================== -->
+        <div class="card" id="apiKeyCard">
+            <div class="card-header">
+                <span class="section-title">
+                    <span class="dot"></span> API 密钥配置
+                </span>
+                <span class="key-status unset" id="keyStatus">⚠️ 未设置</span>
+            </div>
+            <div class="api-key-row">
+                <div class="api-key-input-wrapper">
+                    <input
+                    type="password"
+                    id="apiKeyInput"
+                    placeholder="请输入您的 Agnes API 密钥 (sk-...)"
+                    autocomplete="off"
+                    spellcheck="false"
+                    >
+                    <button class="toggle-visibility" id="toggleKeyVisibility" title="显示/隐藏密钥" type="button">
+                        👁️
+                    </button>
+                </div>
+                <button class="btn-sm save-btn" id="saveKeyBtn" type="button">💾 保存密钥</button>
+                <button class="btn-sm" id="clearKeyBtn" type="button">🗑️ 清除</button>
+            </div>
+        </div>
+
+        <!-- ==================== 输入卡片 ==================== -->
+        <div class="card" id="inputCard">
+            <div class="card-header">
+                <span class="section-title">📝 提示词</span>
+                <span class="char-count" id="charCount">0 / 4000</span>
+            </div>
+            <textarea
+            class="prompt-textarea"
+            id="promptInput"
+            placeholder="描述你想生成的图像，越详细效果越好...&#10;&#10;例如：一只毛茸茸的橘猫坐在窗台上，温暖的阳光透过百叶窗洒在它身上，柔和的阴影，高清摄影风格，背景是温馨的室内环境"
+            maxlength="4000"
+        ></textarea>
+
+        <!-- 参数选择 -->
+        <div class="params-row">
+            <div class="param-group">
+                <label for="sizeSelect">📐 图片尺寸</label>
+                <select id="sizeSelect">
+                    <option value="1024x1024" selected>1024 × 1024 (正方形)</option>
+                    <option value="768x1024">768 × 1024 (竖版)</option>
+                    <option value="1024x768">1024 × 768 (横版)</option>
+                </select>
+            </div>
+            <div class="param-group">
+                <label for="countSelect">🔢 生成数量</label>
+                <select id="countSelect">
+                    <option value="1" selected>1 张</option>
+                    <option value="2">2 张</option>
+                    <option value="3">3 张</option>
+                    <option value="4">4 张</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- 生成按钮 -->
+        <button class="generate-btn" id="generateBtn" type="button">
+            <span class="spinner"></span>
+            <span class="btn-text">🚀 生成图片</span>
+        </button>
+
+        <!-- 状态消息 -->
+        <div class="status-message" id="statusMsg"></div>
+    </div>
+
+    <!-- ==================== 结果区域 ==================== -->
+    <div class="results-section" id="resultsSection">
+        <div class="card">
+            <div class="card-header">
+                <span class="section-title">🖼️ 生成结果</span>
+                <span style="font-size:12px;color:var(--text-tertiary);" id="resultInfo"></span>
+            </div>
+            <div class="results-grid" id="resultsGrid"></div>
+        </div>
+    </div>
+
+    <!-- ==================== 页脚 ==================== -->
+    <footer class="footer">
+        基于 <a href="https://agnes-ai.com/zh-Hans/docs/agnes-image-20-flash" target="_blank" rel="noopener noreferrer">Agnes Image 2.0 Flash API</a> · 图片由 AI 生成
+    </footer>
+</div>
+
+<!-- ==================== 灯箱（动态创建） ==================== -->
+<!-- 灯箱将在JS中动态创建 -->
+
+<!-- ==================== Toast提示 ==================== -->
+<div class="toast" id="toast"></div>
+
+<script>
+    (function() {
+        // ============ DOM引用 ============
+        const apiKeyInput = document.getElementById('apiKeyInput');
+        const toggleKeyVisibilityBtn = document.getElementById('toggleKeyVisibility');
+        const saveKeyBtn = document.getElementById('saveKeyBtn');
+        const clearKeyBtn = document.getElementById('clearKeyBtn');
+        const keyStatus = document.getElementById('keyStatus');
+        const promptInput = document.getElementById('promptInput');
+        const charCount = document.getElementById('charCount');
+        const sizeSelect = document.getElementById('sizeSelect');
+        const countSelect = document.getElementById('countSelect');
+        const generateBtn = document.getElementById('generateBtn');
+        const statusMsg = document.getElementById('statusMsg');
+        const resultsSection = document.getElementById('resultsSection');
+        const resultsGrid = document.getElementById('resultsGrid');
+        const resultInfo = document.getElementById('resultInfo');
+        const toast = document.getElementById('toast');
+
+        // ============ 状态 ============
+        let apiKey = '';
+        let isGenerating = false;
+        let lightboxEl = null;
+
+        // ============ 初始化：从localStorage加载密钥 ============
+        function loadApiKey() {
+            const stored = localStorage.getItem('agnes_api_key');
+            if (stored) {
+                apiKey = stored;
+                apiKeyInput.value = stored;
+                updateKeyStatus(true);
+            } else {
+                apiKey = '';
+                apiKeyInput.value = '';
+                updateKeyStatus(false);
+            }
+        }
+
+        function updateKeyStatus(isSet) {
+            if (isSet) {
+                keyStatus.textContent = '✅ 已设置';
+                keyStatus.className = 'key-status set';
+            } else {
+                keyStatus.textContent = '⚠️ 未设置';
+                keyStatus.className = 'key-status unset';
+            }
+        }
+
+        // ============ Toast ============
+        let toastTimer;
+
+        function showToast(message, duration = 2500) {
+            clearTimeout(toastTimer);
+            toast.textContent = message;
+            toast.classList.add('show');
+            toastTimer = setTimeout(() => {
+                toast.classList.remove('show');
+            }, duration);
+        }
+
+        // ============ 状态消息 ============
+        function showStatus(message, type = 'info') {
+            statusMsg.textContent = message;
+            statusMsg.className = 'status-message visible ' + type;
+        }
+
+        function hideStatus() {
+            statusMsg.className = 'status-message';
+        }
+
+        // ============ 密钥可见性切换 ============
+        toggleKeyVisibilityBtn.addEventListener('click', () => {
+            const isPassword = apiKeyInput.type === 'password';
+            apiKeyInput.type = isPassword ? 'text' : 'password';
+            toggleKeyVisibilityBtn.textContent = isPassword ? '🙈' : '👁️';
+        });
+
+        // ============ 保存密钥 ============
+        saveKeyBtn.addEventListener('click', () => {
+            const key = apiKeyInput.value.trim();
+            if (!key) {
+                showToast('⚠️ 请输入有效的 API 密钥');
+                return;
+            }
+            if (!key.startsWith('sk-') && !key.startsWith('ag-')) {
+                showToast('⚠️ 密钥格式可能不正确，请检查（通常以 sk- 或 ag- 开头）');
+                // 仍然允许保存
+            }
+            apiKey = key;
+            localStorage.setItem('agnes_api_key', key);
+            updateKeyStatus(true);
+            hideStatus();
+            showToast('✅ API 密钥已保存');
+        });
+
+        // ============ 清除密钥 ============
+        clearKeyBtn.addEventListener('click', () => {
+            apiKey = '';
+            apiKeyInput.value = '';
+            localStorage.removeItem('agnes_api_key');
+            updateKeyStatus(false);
+            hideStatus();
+            showToast('🗑️ API 密钥已清除');
+        });
+
+        // ============ 字符计数 ============
+        promptInput.addEventListener('input', () => {
+            const len = promptInput.value.length;
+            charCount.textContent = `${len} / 4000`;
+            if (len > 3800) {
+                charCount.style.color = '#f59e0b';
+            } else if (len > 3950) {
+                charCount.style.color = '#dc2626';
+            } else {
+                charCount.style.color = '';
+            }
+        });
+
+        // ============ 灯箱 ============
+        function openLightbox(imageUrl) {
+            // 移除旧灯箱
+            if (lightboxEl) {
+                lightboxEl.remove();
+                lightboxEl = null;
+            }
+
+            lightboxEl = document.createElement('div');
+            lightboxEl.className = 'lightbox';
+            lightboxEl.innerHTML = `
+                    <button class="close-btn" title="关闭 (ESC)">✕</button>
+                    <img src="${imageUrl}" alt="生成图片预览" />
+                    <div class="lightbox-actions">
+                        <button id="lightboxOpenBtn" title="在新标签页打开">🔗 打开原图</button>
+                        <button id="lightboxDownloadBtn" title="下载图片">⬇️ 下载</button>
+                    </div>
+                `;
+            document.body.appendChild(lightboxEl);
+
+            // 关闭事件
+            const closeBtn = lightboxEl.querySelector('.close-btn');
+            const closeLightbox = () => {
+                if (lightboxEl) {
+                    lightboxEl.remove();
+                    lightboxEl = null;
+                    document.removeEventListener('keydown', escHandler);
+                }
+            };
+
+            const escHandler = (e) => {
+                if (e.key === 'Escape') closeLightbox();
+            };
+
+            lightboxEl.addEventListener('click', (e) => {
+                if (e.target === lightboxEl) closeLightbox();
+            });
+            closeBtn.addEventListener('click', closeLightbox);
+            document.addEventListener('keydown', escHandler);
+
+            // 打开原图
+            const openBtn = lightboxEl.querySelector('#lightboxOpenBtn');
+            openBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                window.open(imageUrl, '_blank', 'noopener,noreferrer');
+            });
+
+            // 下载按钮
+            const downloadBtn = lightboxEl.querySelector('#lightboxDownloadBtn');
+            downloadBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // 尝试通过fetch下载（可能受CORS限制）
+                fetch(imageUrl, { mode: 'cors' })
+                    .then(res => res.blob())
+                    .then(blob => {
+                        const blobUrl = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = blobUrl;
+                        a.download = `agnes-generated-${Date.now()}.png`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(blobUrl);
+                        showToast('✅ 图片下载中...');
+                    })
+                    .catch(() => {
+                        // 如果fetch失败（CORS），回退到打开图片
+                        showToast('⚠️ 无法直接下载，正在打开原图...');
+                        window.open(imageUrl, '_blank', 'noopener,noreferrer');
+                    });
+            });
+
+            // 防止图片点击关闭灯箱
+            const imgEl = lightboxEl.querySelector('img');
+            imgEl.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+        }
+
+        // ============ 渲染结果 ============
+        function renderResults(imageUrls, promptUsed, sizeUsed) {
+            resultsGrid.innerHTML = '';
+            const count = imageUrls.length;
+
+            // 设置网格类
+            resultsGrid.classList.remove('single', 'double');
+            if (count === 1) {
+                resultsGrid.classList.add('single');
+            } else if (count === 2) {
+                resultsGrid.classList.add('double');
+            }
+
+            imageUrls.forEach((url, index) => {
+                const item = document.createElement('div');
+                item.className = 'result-item';
+                item.innerHTML = `
+                        <span class="img-index">#${index + 1}</span>
+                        <div class="img-placeholder">🖼️</div>
+                        <div class="hover-overlay">
+                            <span class="zoom-icon">🔍</span>
+                        </div>
+                        <img
+                            src="${url}"
+                            alt="生成图片 ${index + 1}"
+                            class="loading-img"
+                            loading="lazy"
+                        />
+                    `;
+                const img = item.querySelector('img');
+                const placeholder = item.querySelector('.img-placeholder');
+
+                // 图片加载完成
+                img.addEventListener('load', () => {
+                    img.classList.remove('loading-img');
+                    img.classList.add('loaded');
+                    if (placeholder) placeholder.style.display = 'none';
+                });
+
+                // 图片加载失败
+                img.addEventListener('error', () => {
+                    if (placeholder) {
+                        placeholder.textContent = '⚠️';
+                        placeholder.style.color = '#f87171';
+                    }
+                    img.style.display = 'none';
+                });
+
+                // 如果图片已缓存（立即加载完成）
+                if (img.complete && img.naturalWidth > 0) {
+                    img.classList.remove('loading-img');
+                    img.classList.add('loaded');
+                    if (placeholder) placeholder.style.display = 'none';
+                }
+
+                // 点击打开灯箱
+                item.addEventListener('click', () => {
+                    openLightbox(url);
+                });
+
+                resultsGrid.appendChild(item);
+            });
+
+            resultInfo.textContent = `提示词: "${promptUsed.slice(0, 40)}${promptUsed.length > 40 ? '...' : ''}" · 尺寸: ${sizeUsed}`;
+            resultsSection.classList.add('visible');
+
+            // 平滑滚动到结果
+            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // ============ 调用API ============
+        async function generateImages() {
+            if (isGenerating) return;
+
+            // 验证密钥
+            if (!apiKey) {
+                showStatus('⚠️ 请先设置 API 密钥后再生成图片', 'error');
+                // 滚动到密钥卡片
+                document.getElementById('apiKeyCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                apiKeyInput.focus();
+                return;
+            }
+
+            const prompt = promptInput.value.trim();
+            if (!prompt) {
+                showStatus('⚠️ 请输入图片描述（提示词）', 'error');
+                promptInput.focus();
+                return;
+            }
+
+            if (prompt.length < 3) {
+                showStatus('⚠️ 提示词太短，请提供更详细的描述（至少3个字符）', 'error');
+                promptInput.focus();
+                return;
+            }
+
+            const size = sizeSelect.value;
+            const n = parseInt(countSelect.value, 10);
+
+            // 开始生成
+            isGenerating = true;
+            generateBtn.classList.add('loading');
+            generateBtn.disabled = true;
+            hideStatus();
+            resultsSection.classList.remove('visible');
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 120000); // 120秒超时
+
+            try {
+                const response = await fetch('https://api.agnes-ai.com/v1/images/generations', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model: 'agnes-image-20-flash',
+                        prompt: prompt,
+                        size: size,
+                        n: n,
+                    }),
+                    signal: controller.signal,
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    let errorMsg = '';
+                    switch (response.status) {
+                        case 400:
+                            errorMsg = '请求参数错误，请检查提示词或参数设置';
+                            break;
+                        case 401:
+                            errorMsg = 'API 密钥无效或已过期，请检查密钥设置';
+                            break;
+                        case 402:
+                            errorMsg = '账户余额不足，请充值后重试';
+                            break;
+                        case 429:
+                            errorMsg = '请求过于频繁，请稍后重试';
+                            break;
+                        case 500:
+                            errorMsg = '服务器内部错误，请稍后重试';
+                            break;
+                        case 503:
+                            errorMsg = '服务暂时不可用，请稍后重试';
+                            break;
+                        default:
+                            errorMsg = `请求失败 (HTTP ${response.status})`;
+                    }
+                    if (errorData.error && errorData.error.message) {
+                        errorMsg += `: ${errorData.error.message}`;
+                    }
+                    throw new Error(errorMsg);
+                }
+
+                const data = await response.json();
+
+                // 解析返回的图片URL
+                if (!data.data || !Array.isArray(data.data) || data.data.length === 0) {
+                    throw new Error('API 返回数据格式异常，未包含图片信息');
+                }
+
+                const imageUrls = data.data
+                    .map(item => item.url || item.b64_json || null)
+                    .filter(Boolean);
+
+                if (imageUrls.length === 0) {
+                    throw new Error('API 未返回有效的图片地址');
+                }
+
+                // 处理base64格式
+                const processedUrls = imageUrls.map(url => {
+                    if (url.startsWith('data:image')) {
+                        return url; // 已经是data URL
+                    }
+                    if (url.startsWith('http://') || url.startsWith('https://')) {
+                        return url;
+                    }
+                    // 假设是base64字符串，添加前缀
+                    return `data:image/png;base64,${url}`;
+                });
+
+                // 渲染结果
+                renderResults(processedUrls, prompt, size);
+                showToast(`✅ 成功生成 ${processedUrls.length} 张图片！`);
+
+            } catch (error) {
+                clearTimeout(timeoutId);
+                if (error.name === 'AbortError') {
+                    showStatus('⏰ 请求超时（120秒），图片生成可能需要更长时间，请重试', 'error');
+                } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                    showStatus('🌐 网络连接失败，请检查网络后重试', 'error');
+                } else {
+                    showStatus(`❌ ${error.message}`, 'error');
+                }
+                resultsSection.classList.remove('visible');
+            } finally {
+                isGenerating = false;
+                generateBtn.classList.remove('loading');
+                generateBtn.disabled = false;
+            }
+        }
+
+        // ============ 生成按钮点击 ============
+        generateBtn.addEventListener('click', generateImages);
+
+        // ============ 快捷键：Ctrl/Cmd + Enter 触发生成 ============
+        promptInput.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                generateImages();
+            }
+        });
+
+        // ============ 页面加载初始化 ============
+        function init() {
+            loadApiKey();
+            // 如果没有密钥，稍微高亮提示
+            if (!apiKey) {
+                setTimeout(() => {
+                    apiKeyInput.focus();
+                }, 600);
+            }
+            // 初始化字符计数
+            charCount.textContent = `0 / 4000`;
+        }
+
+        init();
+
+        // ============ 暴露方法到全局（调试用） ============
+        console.log('✅ Agnes 文生图页面已就绪');
+        console.log('   API端点: https://api.agnes-ai.com/v1/images/generations');
+        console.log('   模型: agnes-image-20-flash');
+        console.log('   提示: 使用 Ctrl+Enter 快捷键快速生成');
+        if (!apiKey) {
+            console.warn('   ⚠️ 尚未设置API密钥，请先配置密钥');
+        } else {
+            console.log('   🔑 API密钥已配置');
+        }
+    })();
+</script>
+</body>
+</html>
