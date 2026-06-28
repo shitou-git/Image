@@ -662,15 +662,19 @@ async function handleAdminAPI(db, path, method, body, request) {
     let userSql = 'SELECT COUNT(*) as count FROM users WHERE 1=1';
     let sessionSql = 'SELECT COUNT(*) as count FROM chat_sessions WHERE 1=1';
     let msgSql = 'SELECT COUNT(*) as count FROM chat_messages WHERE 1=1';
+    let imgSql = 'SELECT COUNT(*) as count FROM generated_images WHERE 1=1';
     const userParams = [];
     const sessionParams = [];
     const msgParams = [];
+    const imgParams = [];
 
     if (userId) {
       sessionSql += ' AND user_id = ?';
       sessionParams.push(userId);
       msgSql += ' AND user_id = ?';
       msgParams.push(userId);
+      imgSql += ' AND user_id = ?';
+      imgParams.push(userId);
     }
 
     const sd = buildDateFilter('created_at');
@@ -679,15 +683,19 @@ async function handleAdminAPI(db, path, method, body, request) {
       sessionParams.push(...sd.params);
       msgSql += sd.sql;
       msgParams.push(...sd.params);
+      imgSql += sd.sql;
+      imgParams.push(...sd.params);
     }
 
     const userResult = await db.prepare(userSql).bind(...userParams).first();
     const sessionResult = await db.prepare(sessionSql).bind(...sessionParams).first();
     const msgResult = await db.prepare(msgSql).bind(...msgParams).first();
+    const imgResult = await db.prepare(imgSql).bind(...imgParams).first();
     return jsonResponse({
       users: userResult.count,
       sessions: sessionResult.count,
-      messages: msgResult.count
+      messages: msgResult.count,
+      images: imgResult.count,
     }, 200, request);
   }
 
@@ -769,6 +777,57 @@ async function handleAdminAPI(db, path, method, body, request) {
   if (messageDeleteMatch && method === 'POST') {
     const messageId = messageDeleteMatch[1];
     await db.prepare('DELETE FROM chat_messages WHERE id = ?1').bind(messageId).run();
+    return jsonResponse({ ok: true }, 200, request);
+  }
+
+  // ── 管理员：图片列表 ──
+  if (path === '/api/admin/images' && method === 'GET') {
+    const page = parseInt(url.searchParams.get('page') || '1', 10);
+    const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+    const offset = (page - 1) * limit;
+
+    let countSql = 'SELECT COUNT(*) as total FROM generated_images WHERE 1=1';
+    let listSql = `
+      SELECT gi.*, u.email, u.nickname
+      FROM generated_images gi
+      LEFT JOIN users u ON gi.user_id = u.id
+      WHERE 1=1
+    `;
+    const countParams = [];
+    const listParams = [];
+
+    if (userId) {
+      countSql += ' AND gi.user_id = ?';
+      listSql += ' AND gi.user_id = ?';
+      countParams.push(userId);
+      listParams.push(userId);
+    }
+
+    const sd = buildDateFilter('gi.created_at');
+    if (sd.params.length > 0) {
+      countSql += sd.sql;
+      listSql += sd.sql;
+      countParams.push(...sd.params);
+      listParams.push(...sd.params);
+    }
+
+    const countResult = await db.prepare(countSql).bind(...countParams).first();
+    listSql += ' ORDER BY gi.created_at DESC LIMIT ? OFFSET ?';
+    listParams.push(limit, offset);
+
+    const listResult = await db.prepare(listSql).bind(...listParams).all();
+    return jsonResponse({
+      images: listResult.results || listResult,
+      total: countResult?.total || 0,
+      page, limit,
+    }, 200, request);
+  }
+
+  // ── 管理员：删除图片 ──
+  const imageDeleteMatch = path.match(/^\/api\/admin\/images\/([^\/]+)\/delete$/);
+  if (imageDeleteMatch && method === 'POST') {
+    const imageId = imageDeleteMatch[1];
+    await db.prepare('DELETE FROM generated_images WHERE id = ?1').bind(imageId).run();
     return jsonResponse({ ok: true }, 200, request);
   }
 
@@ -1087,12 +1146,17 @@ tr:hover { background: #334155; }
       <div class="stat-label">消息总数</div>
       <div class="stat-value" id="msgCount">-</div>
     </div>
+    <div class="stat-card">
+      <div class="stat-label">图片总数</div>
+      <div class="stat-value" id="imgCount">-</div>
+    </div>
   </div>
 
   <div class="tabs">
     <button class="tab active" onclick="switchTab('users', this)">👤 用户</button>
     <button class="tab" onclick="switchTab('sessions', this)">💬 聊天会话</button>
     <button class="tab" onclick="switchTab('messages', this)">📝 聊天消息</button>
+    <button class="tab" onclick="switchTab('images', this)">🖼️ 图片记录</button>
   </div>
 
   <div id="panel-users" class="panel active">
@@ -1110,6 +1174,24 @@ tr:hover { background: #334155; }
   <div id="panel-messages" class="panel">
     <div class="card">
       <div id="messages-table"></div>
+    </div>
+  </div>
+
+  <div id="panel-images" class="panel">
+    <div class="card">
+      <div id="images-table"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="imgPreviewModal">
+  <div class="modal" style="max-width:700px;">
+    <h3>🖼️ 图片预览</h3>
+    <div id="imgPreviewContent" style="text-align:center;margin:12px 0;"></div>
+    <div style="margin-top:12px;padding:10px;background:#0f172a;border-radius:6px;font-size:0.82rem;line-height:1.6;" id="imgPreviewInfo"></div>
+    <div class="modal-btns">
+      <button class="btn btn-danger" onclick="deleteImageFromPreview()">🗑️ 删除</button>
+      <button class="btn" onclick="closeImgPreview()">关闭</button>
     </div>
   </div>
 </div>
@@ -1270,6 +1352,7 @@ function switchTab(name, btn) {
   if (name === 'users') loadUsers();
   if (name === 'sessions') loadSessions();
   if (name === 'messages') loadMessages();
+  if (name === 'images') loadImages();
 }
 
 function formatTime(ts) {
@@ -1283,6 +1366,7 @@ function loadStats() {
     document.getElementById('userCount').textContent = data.users || 0;
     document.getElementById('sessionCount').textContent = data.sessions || 0;
     document.getElementById('msgCount').textContent = data.messages || 0;
+    document.getElementById('imgCount').textContent = data.images || 0;
   }).catch(function(e) { console.error(e); });
 }
 
@@ -1452,6 +1536,112 @@ function deleteMessage(id) {
   });
 }
 
+function loadImages() {
+  var el = document.getElementById('images-table');
+  el.innerHTML = '<div class="loading">加载中...</div>';
+  apiGet('/images' + buildQuery().replace(/\?/, '?limit=100&') + (buildQuery() ? '&' : '?') + 'page=1&limit=100').then(function(data) {
+    var images = data.images || [];
+    if (images.length === 0) {
+      el.innerHTML = '<div class="empty">暂无图片记录</div>';
+      return;
+    }
+    var html = '<table><thead><tr>' +
+      '<th>用户</th><th>提示词</th><th>尺寸</th><th>收藏</th><th>生成时间</th><th>操作</th>' +
+      '</tr></thead><tbody>';
+    images.forEach(function(img) {
+      var favBadge = img.is_favorite == 1
+        ? '<span class="badge" style="background:#f59e0b;color:#fff;">⭐ 已收藏</span>'
+        : '<span style="color:#64748b;">未收藏</span>';
+      var preview = (img.prompt || '').slice(0, 80);
+      var safePrompt = (img.prompt || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+      html += '<tr data-image-id="' + img.id + '">' +
+        '<td>' + (img.email || img.user_id.slice(0, 8) + '...') + '</td>' +
+        '<td class="content-cell" title="' + safePrompt + '" onclick="toggleMessageExpand(this)">' + preview + '</td>' +
+        '<td>' + (img.size || '-') + '</td>' +
+        '<td>' + favBadge + '</td>' +
+        '<td>' + formatTime(img.created_at) + '</td>' +
+        '<td><button class="btn" data-action="view-img" style="background:#7c3aed;">查看</button> <button class="btn btn-danger" data-action="delete-img">删除</button></td>' +
+        '</tr>';
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+
+    el.querySelectorAll('[data-action="view-img"]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var tr = btn.closest('tr');
+        var iid = tr.getAttribute('data-image-id');
+        var imgData = images.find(function(i) { return i.id === iid; });
+        if (imgData) openImgPreview(imgData);
+      });
+    });
+    el.querySelectorAll('[data-action="delete-img"]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var tr = btn.closest('tr');
+        var iid = tr.getAttribute('data-image-id');
+        deleteImage(iid);
+      });
+    });
+  }).catch(function(e) {
+    el.innerHTML = '<div class="error">' + e.message + '</div>';
+  });
+}
+
+var previewImageData = null;
+
+function openImgPreview(imgData) {
+  previewImageData = imgData;
+  var content = document.getElementById('imgPreviewContent');
+  var info = document.getElementById('imgPreviewInfo');
+  var b64 = imgData.image_b64 || '';
+  var src = b64.startsWith('data:') ? b64 : 'data:image/png;base64,' + b64;
+  content.innerHTML = '<img src="' + src + '" style="max-width:100%;max-height:60vh;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.5);" onerror="this.parentElement.innerHTML=\'<div style=color:#f87171;padding:40px;>图片加载失败</div>\'">';
+  var userInfo = imgData.email ? imgData.email : ('ID: ' + imgData.user_id.slice(0, 16) + '...');
+  info.innerHTML = '<b>用户：</b>' + userInfo + '<br>' +
+    '<b>提示词：</b>' + (imgData.prompt || '-') + '<br>' +
+    '<b>尺寸：</b>' + (imgData.size || '-') + ' &nbsp; <b>收藏：</b>' + (imgData.is_favorite == 1 ? '⭐ 是' : '否') + '<br>' +
+    '<b>模型：</b>' + (imgData.model || '-') + '<br>' +
+    '<b>时间：</b>' + formatTime(imgData.created_at) + '<br>' +
+    '<b>ID：</b>' + imgData.id;
+  document.getElementById('imgPreviewModal').classList.add('show');
+}
+
+function closeImgPreview() {
+  previewImageData = null;
+  document.getElementById('imgPreviewModal').classList.remove('show');
+}
+
+function deleteImageFromPreview() {
+  if (!previewImageData) return;
+  if (!confirm('确定删除这张图片？')) return;
+  var iid = previewImageData.id;
+  apiPost('/images/' + iid + '/delete', {}).then(function() {
+    closeImgPreview();
+    loadImages();
+    loadStats();
+    showToast('删除成功');
+  }).catch(function(e) { showToast(e.message, 'error'); });
+}
+
+function deleteImage(id) {
+  if (!confirm('确定删除这张图片？')) return;
+  apiPost('/images/' + id + '/delete', {}).then(function() {
+    loadImages();
+    loadStats();
+    showToast('删除成功');
+  }).catch(function(e) { showToast(e.message, 'error'); });
+}
+
+function showToast(msg) {
+  var existing = document.getElementById('toast');
+  if (existing) existing.remove();
+  var toast = document.createElement('div');
+  toast.id = 'toast';
+  toast.style = 'position:fixed;bottom:20px;right:20px;background:#334155;color:#f1f5f9;padding:10px 16px;border-radius:8px;font-size:0.88rem;z-index:3000;box-shadow:0 4px 12px rgba(0,0,0,0.3);';
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(function() { toast.remove(); }, 3000);
+}
+
 function refreshAll() {
   loadStats();
   var activePanel = document.querySelector('.panel.active');
@@ -1460,6 +1650,7 @@ function refreshAll() {
     if (id === 'users') loadUsers();
     if (id === 'sessions') loadSessions();
     if (id === 'messages') loadMessages();
+    if (id === 'images') loadImages();
   }
 }
 
