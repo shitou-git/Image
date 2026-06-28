@@ -429,7 +429,8 @@
     position: absolute;
     inset: 0;
     opacity: 0;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.2s ease;
+    will-change: opacity;
   }
 
   .img-card img.loaded {
@@ -1728,69 +1729,33 @@
   modalNext.addEventListener('click', e => { e.stopPropagation(); switchModalImage(1); });
 
   // ── 缩略图加载优化 ──
-  const THUMB_MAX_WIDTH = 600;
-  let loadQueue = [];
-  let isLoading = false;
-
   function loadThumbnail(imgEl, originalUrl, shimmerEl) {
-    loadQueue.push({ imgEl, originalUrl, shimmerEl });
-    processLoadQueue();
-  }
-
-  function processLoadQueue() {
-    if (isLoading || loadQueue.length === 0) return;
-    isLoading = true;
-    const task = loadQueue.shift();
-
-    const tempImg = new Image();
-    tempImg.decoding = 'async';
-    tempImg.crossOrigin = 'anonymous';
-
-    const onDone = (thumbnailUrl) => {
-      task.imgEl.src = thumbnailUrl || task.originalUrl;
-      task.imgEl.classList.add('loaded');
-      if (task.shimmerEl) task.shimmerEl.classList.add('hidden');
-      isLoading = false;
-      setTimeout(processLoadQueue, 50);
+    imgEl.src = originalUrl;
+    const show = () => {
+      shimmerEl?.classList.add('hidden');
+      imgEl.classList.add('loaded');
     };
-
-    tempImg.onload = () => {
-      try {
-        const thumbUrl = createThumbnail(tempImg);
-        onDone(thumbUrl);
-      } catch (e) {
-        onDone(null);
-      }
-    };
-
-    tempImg.onerror = () => {
-      onDone(null);
-    };
-
-    tempImg.src = task.originalUrl;
-  }
-
-  function createThumbnail(img) {
-    const w = img.naturalWidth;
-    const h = img.naturalHeight;
-    if (w <= THUMB_MAX_WIDTH) return img.src;
-
-    const ratio = THUMB_MAX_WIDTH / w;
-    const thumbW = THUMB_MAX_WIDTH;
-    const thumbH = Math.round(h * ratio);
-
-    const canvas = document.createElement('canvas');
-    canvas.width = thumbW;
-    canvas.height = thumbH;
-    const ctx = canvas.getContext('2d');
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(img, 0, 0, thumbW, thumbH);
-
-    try {
-      return canvas.toDataURL('image/jpeg', 0.82);
-    } catch (e) {
-      return img.src;
+    if (imgEl.complete && imgEl.naturalWidth > 0) {
+      show();
+    } else {
+      const onLoad = () => {
+        if ('decode' in imgEl) {
+          imgEl.decode().then(show).catch(show);
+        } else {
+          show();
+        }
+        cleanup();
+      };
+      const onError = () => {
+        show();
+        cleanup();
+      };
+      const cleanup = () => {
+        imgEl.removeEventListener('load', onLoad);
+        imgEl.removeEventListener('error', onError);
+      };
+      imgEl.addEventListener('load', onLoad);
+      imgEl.addEventListener('error', onError);
     }
   }
 
