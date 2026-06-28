@@ -1596,7 +1596,14 @@ function openImgPreview(imgData) {
   var info = document.getElementById('imgPreviewInfo');
   var b64 = imgData.image_b64 || '';
   var src = b64.startsWith('data:') ? b64 : 'data:image/png;base64,' + b64;
-  content.innerHTML = '<img src="' + src + '" style="max-width:100%;max-height:60vh;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.5);" onerror="this.parentElement.innerHTML=\'<div style=color:#f87171;padding:40px;>图片加载失败</div>\'">';
+  content.innerHTML = '';
+  var img = document.createElement('img');
+  img.src = src;
+  img.style.cssText = 'max-width:100%;max-height:60vh;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.5);';
+  img.onerror = function() {
+    content.innerHTML = '<div style="color:#f87171;padding:40px;">图片加载失败</div>';
+  };
+  content.appendChild(img);
   var userInfo = imgData.email ? imgData.email : ('ID: ' + imgData.user_id.slice(0, 16) + '...');
   info.innerHTML = '<b>用户：</b>' + userInfo + '<br>' +
     '<b>提示词：</b>' + (imgData.prompt || '-') + '<br>' +
