@@ -1539,7 +1539,9 @@ function deleteMessage(id) {
 function loadImages() {
   var el = document.getElementById('images-table');
   el.innerHTML = '<div class="loading">加载中...</div>';
-  apiGet('/images' + buildQuery().replace(/\?/, '?limit=100&') + (buildQuery() ? '&' : '?') + 'page=1&limit=100').then(function(data) {
+  var query = buildQuery();
+  var url = '/images' + (query ? query + '&' : '?') + 'page=1&limit=100';
+  apiGet(url).then(function(data) {
     var images = data.images || [];
     if (images.length === 0) {
       el.innerHTML = '<div class="empty">暂无图片记录</div>';
