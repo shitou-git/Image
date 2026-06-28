@@ -1,36 +1,61 @@
 const AGNES_API_URL = 'https://apihub.agnes-ai.com/v1/images/generations';
+const KV_PREFIX = 'img:';
+const KV_INDEX = 'img_index';
 
-addEventListener('fetch', event => {
-  event.respondWith(handleRequest(event.request));
-});
+let _dbInited = false;
 
-async function handleRequest(request) {
-  if (request.method === 'GET') {
-    return new Response('Agnes Image API Proxy is running. Use POST to generate images.', {
-      status: 200,
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    });
-  }
-
+async function handleRequest(request, env, ctx) {
   if (request.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: corsHeaders(),
-    });
+    return new Response(null, { headers: corsHeaders(request) });
   }
 
-  if (request.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: corsHeaders(),
-    });
+  const url = new URL(request.url);
+  const path = url.pathname;
+  const db = env && env.DB ? env.DB : null;
+  const kv = env && env.IMAGE_GALLERY ? env.IMAGE_GALLERY : (globalThis.IMAGE_GALLERY || null);
+
+  if (db) {
+    await ensureDB(db);
   }
 
-  const apiKey = globalThis.AGNES_API_KEY;
+  if (request.method === 'GET' && path === '/') {
+    const hasDB = !!db;
+    const hasKV = !!kv;
+    return new Response(
+      `Agnes Image API Proxy is running.\nDB: ${hasDB ? 'enabled' : 'disabled'}\nKV: ${hasKV ? 'enabled' : 'disabled'}\nUse POST to generate images.`,
+      { status: 200, headers: { 'Content-Type': 'text/plain;charset=utf-8', ...corsHeaders(request) } }
+    );
+  }
+
+  if (path === '/api/images' && request.method === 'GET') {
+    return handleListImages(db, kv, url, request);
+  }
+  if (path === '/api/images' && request.method === 'POST') {
+    const body = await request.json();
+    return handleSaveImage(db, kv, body, request);
+  }
+  const imgMatch = path.match(/^\/api\/images\/([^\/]+)$/);
+  if (imgMatch) {
+    const iid = imgMatch[1];
+    if (request.method === 'GET') return handleGetImage(db, kv, iid, request);
+    if (request.method === 'DELETE') return handleDeleteImage(db, kv, iid, request);
+    if (request.method === 'PUT') {
+      const body = await request.json();
+      return handleUpdateImage(db, kv, iid, body, request);
+    }
+  }
+
+  if (request.method === 'POST' && path === '/') {
+    return handleGenerate(request, env);
+  }
+
+  return jsonResponse({ error: 'Not found: ' + path }, 404, request);
+}
+
+async function handleGenerate(request, env) {
+  const apiKey = (env && env.AGNES_API_KEY) || globalThis.AGNES_API_KEY;
   if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'API key not configured' }), {
-      status: 500,
-      headers: corsHeaders(),
-    });
+    return jsonResponse({ error: 'API key not configured' }, 500, request);
   }
 
   try {
@@ -38,10 +63,7 @@ async function handleRequest(request) {
     const { prompt, size, n, image } = body;
 
     if (!prompt || !size) {
-      return new Response(JSON.stringify({ error: 'Missing required fields: prompt, size' }), {
-        status: 400,
-        headers: corsHeaders(),
-      });
+      return jsonResponse({ error: 'Missing required fields: prompt, size' }, 400, request);
     }
 
     const count = Math.min(n || 1, 4);
@@ -72,33 +94,341 @@ async function handleRequest(request) {
 
     for (const r of results) {
       if (r.error) {
-        return new Response(JSON.stringify(r), {
-          status: 400,
-          headers: corsHeaders(),
-        });
+        return jsonResponse(r, 400, request);
       }
     }
 
     const allData = results.flatMap(r => r.data || []);
     const merged = { created: Math.floor(Date.now() / 1000), data: allData };
 
-    return new Response(JSON.stringify(merged), {
-      status: 200,
-      headers: corsHeaders(),
-    });
+    return jsonResponse(merged, 200, request);
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: corsHeaders(),
-    });
+    return jsonResponse({ error: err.message }, 500, request);
   }
 }
 
-function corsHeaders() {
+// ================================================================
+// 数据库初始化
+// ================================================================
+
+async function ensureDB(db) {
+  if (_dbInited) return;
+  try {
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS generated_images (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL DEFAULT 'public',
+        prompt TEXT NOT NULL,
+        size TEXT NOT NULL DEFAULT '',
+        style TEXT DEFAULT '',
+        image_b64 TEXT NOT NULL,
+        is_favorite INTEGER NOT NULL DEFAULT 0,
+        model TEXT DEFAULT '',
+        created_at INTEGER NOT NULL
+      )
+    `).run();
+
+    try {
+      await db.prepare(`CREATE INDEX IF NOT EXISTS idx_generated_images_user_id ON generated_images(user_id)`).run();
+      await db.prepare(`CREATE INDEX IF NOT EXISTS idx_generated_images_created_at ON generated_images(created_at DESC)`).run();
+    } catch (e) {}
+    _dbInited = true;
+  } catch (e) {
+    console.error('initDB error:', e);
+  }
+}
+
+function getUserId(request) {
+  const authHeader = request && request.headers ? request.headers.get('Authorization') : null;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.substring(7);
+  }
+  const deviceId = request && request.headers ? request.headers.get('X-Device-Id') : null;
+  if (deviceId) return 'dev:' + deviceId;
+  return 'public';
+}
+
+// ================================================================
+// 图片 CRUD - D1版本
+// ================================================================
+
+async function handleSaveImage(db, kv, body, request) {
+  const { prompt, size, style, image_b64, model } = body || {};
+  if (!prompt || !image_b64) {
+    return jsonResponse({ error: 'Missing required fields: prompt, image_b64' }, 400, request);
+  }
+
+  const id = crypto.randomUUID();
+  const ts = Date.now();
+  const userId = getUserId(request);
+
+  if (db) {
+    try {
+      await db.prepare(`
+        INSERT INTO generated_images (id, user_id, prompt, size, style, image_b64, model, created_at)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+      `).bind(id, userId, prompt, size || '', style || '', image_b64, model || '', ts).run();
+      return jsonResponse({ id, created_at: ts }, 200, request);
+    } catch (e) {
+      console.error('DB save error:', e);
+    }
+  }
+
+  if (kv) {
+    try {
+      const record = {
+        id, prompt, size: size || '', style: style || '',
+        model: model || '', image_b64, is_favorite: false,
+        user_id: userId, created_at: ts,
+      };
+      await kv.put(KV_PREFIX + id, JSON.stringify(record));
+
+      let index = [];
+      try {
+        const raw = await kv.get(KV_INDEX);
+        if (raw) index = JSON.parse(raw);
+      } catch (e) {}
+      index.unshift({
+        id, prompt, size: size || '', style: style || '',
+        model: model || '', is_favorite: false,
+        user_id: userId, created_at: ts,
+      });
+      await kv.put(KV_INDEX, JSON.stringify(index));
+      return jsonResponse({ id, created_at: ts }, 200, request);
+    } catch (e) {
+      console.error('KV save error:', e);
+    }
+  }
+
+  return jsonResponse({ error: 'No storage available' }, 500, request);
+}
+
+async function handleListImages(db, kv, url, request) {
+  const page = parseInt(url.searchParams.get('page') || '1', 10);
+  const limit = parseInt(url.searchParams.get('limit') || '20', 10);
+  const favorite = url.searchParams.get('favorite');
+  const withImage = url.searchParams.get('with_image') === '1';
+  const userId = getUserId(request);
+
+  if (db) {
+    try {
+      const offset = (page - 1) * limit;
+      const selectFields = withImage
+        ? 'id, user_id, prompt, size, style, is_favorite, model, created_at, image_b64'
+        : 'id, user_id, prompt, size, style, is_favorite, model, created_at';
+
+      let countSql = 'SELECT COUNT(*) as total FROM generated_images WHERE user_id = ?1';
+      let listSql = `SELECT ${selectFields} FROM generated_images WHERE user_id = ?1`;
+      const params = [userId];
+
+      if (favorite === '1') {
+        countSql += ' AND is_favorite = 1';
+        listSql += ' AND is_favorite = 1';
+      }
+
+      listSql += ' ORDER BY created_at DESC LIMIT ?' + (params.length + 1) + ' OFFSET ?' + (params.length + 2);
+      params.push(limit, offset);
+
+      const countResult = await db.prepare(countSql).bind(...params.slice(0, 1)).first();
+      const listResult = await db.prepare(listSql).bind(...params).all();
+
+      return jsonResponse({
+        items: listResult.results || [],
+        total: countResult?.total || 0,
+        page, limit,
+        storage: 'd1',
+      }, 200, request);
+    } catch (e) {
+      console.error('DB list error:', e);
+    }
+  }
+
+  if (kv) {
+    try {
+      let index = [];
+      try {
+        const raw = await kv.get(KV_INDEX);
+        if (raw) index = JSON.parse(raw);
+      } catch (e) {}
+
+      index = index.filter(i => !i.user_id || i.user_id === userId || i.user_id === 'public');
+
+      if (favorite === '1') {
+        index = index.filter(i => i.is_favorite);
+      }
+
+      const total = index.length;
+      const start = (page - 1) * limit;
+      const items = index.slice(start, start + limit);
+
+      if (withImage) {
+        const fullItems = await Promise.all(
+          items.map(async item => {
+            try {
+              const raw = await kv.get(KV_PREFIX + item.id);
+              if (raw) {
+                const rec = JSON.parse(raw);
+                return { ...item, image_b64: rec.image_b64 };
+              }
+            } catch (e) {}
+            return item;
+          })
+        );
+        return jsonResponse({ items: fullItems, total, page, limit, storage: 'kv' }, 200, request);
+      }
+
+      return jsonResponse({ items, total, page, limit, storage: 'kv' }, 200, request);
+    } catch (e) {
+      console.error('KV list error:', e);
+    }
+  }
+
+  return jsonResponse({ error: 'No storage available' }, 500, request);
+}
+
+async function handleGetImage(db, kv, id, request) {
+  const userId = getUserId(request);
+
+  if (db) {
+    try {
+      const img = await db.prepare(
+        'SELECT * FROM generated_images WHERE id = ?1 AND (user_id = ?2 OR user_id = ?3)'
+      ).bind(id, userId, 'public').first();
+      if (!img) return jsonResponse({ error: 'Image not found' }, 404, request);
+      return jsonResponse(img, 200, request);
+    } catch (e) {
+      console.error('DB get error:', e);
+    }
+  }
+
+  if (kv) {
+    try {
+      const raw = await kv.get(KV_PREFIX + id);
+      if (!raw) return jsonResponse({ error: 'Image not found' }, 404, request);
+      return jsonResponse(JSON.parse(raw), 200, request);
+    } catch (e) {
+      console.error('KV get error:', e);
+    }
+  }
+
+  return jsonResponse({ error: 'No storage available' }, 500, request);
+}
+
+async function handleDeleteImage(db, kv, id, request) {
+  const userId = getUserId(request);
+
+  if (db) {
+    try {
+      const img = await db.prepare(
+        'SELECT id FROM generated_images WHERE id = ?1 AND (user_id = ?2 OR user_id = ?3)'
+      ).bind(id, userId, 'public').first();
+      if (!img) return jsonResponse({ error: 'Image not found' }, 404, request);
+      await db.prepare('DELETE FROM generated_images WHERE id = ?1').bind(id).run();
+      return jsonResponse({ ok: true }, 200, request);
+    } catch (e) {
+      console.error('DB delete error:', e);
+    }
+  }
+
+  if (kv) {
+    try {
+      await kv.delete(KV_PREFIX + id);
+      try {
+        const raw = await kv.get(KV_INDEX);
+        if (raw) {
+          let index = JSON.parse(raw);
+          index = index.filter(i => i.id !== id);
+          await kv.put(KV_INDEX, JSON.stringify(index));
+        }
+      } catch (e) {}
+      return jsonResponse({ ok: true }, 200, request);
+    } catch (e) {
+      console.error('KV delete error:', e);
+    }
+  }
+
+  return jsonResponse({ error: 'No storage available' }, 500, request);
+}
+
+async function handleUpdateImage(db, kv, id, body, request) {
+  const { is_favorite } = body || {};
+  const userId = getUserId(request);
+
+  if (db) {
+    try {
+      const img = await db.prepare(
+        'SELECT id FROM generated_images WHERE id = ?1 AND (user_id = ?2 OR user_id = ?3)'
+      ).bind(id, userId, 'public').first();
+      if (!img) return jsonResponse({ error: 'Image not found' }, 404, request);
+
+      if (typeof is_favorite !== 'undefined') {
+        const favVal = is_favorite ? 1 : 0;
+        await db.prepare(
+          'UPDATE generated_images SET is_favorite = ?1 WHERE id = ?2'
+        ).bind(favVal, id).run();
+      }
+      return jsonResponse({ ok: true }, 200, request);
+    } catch (e) {
+      console.error('DB update error:', e);
+    }
+  }
+
+  if (kv) {
+    try {
+      const raw = await kv.get(KV_PREFIX + id);
+      if (!raw) return jsonResponse({ error: 'Image not found' }, 404, request);
+
+      const record = JSON.parse(raw);
+      if (typeof is_favorite !== 'undefined') {
+        record.is_favorite = !!is_favorite;
+        await kv.put(KV_PREFIX + id, JSON.stringify(record));
+
+        try {
+          const idxRaw = await kv.get(KV_INDEX);
+          if (idxRaw) {
+            let index = JSON.parse(idxRaw);
+            const idx = index.find(i => i.id === id);
+            if (idx) idx.is_favorite = !!is_favorite;
+            await kv.put(KV_INDEX, JSON.stringify(index));
+          }
+        } catch (e) {}
+      }
+      return jsonResponse({ ok: true }, 200, request);
+    } catch (e) {
+      console.error('KV update error:', e);
+    }
+  }
+
+  return jsonResponse({ error: 'No storage available' }, 500, request);
+}
+
+// ================================================================
+// 工具函数
+// ================================================================
+
+function jsonResponse(data, status, request) {
+  return new Response(JSON.stringify(data), {
+    status: status || 200,
+    headers: {
+      'Content-Type': 'application/json',
+      ...corsHeaders(request),
+    },
+  });
+}
+
+function corsHeaders(request) {
+  const origin = request && request.headers ? (request.headers.get('Origin') || '*') : '*';
   return {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS, GET',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Device-Id',
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Max-Age': '86400',
   };
 }
+
+export default {
+  async fetch(request, env, ctx) {
+    return handleRequest(request, env, ctx);
+  },
+};
