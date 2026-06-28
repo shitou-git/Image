@@ -521,6 +521,32 @@
   .modal-close:hover { background: rgba(255,255,255,0.15); color: #fff; }
   .modal-close svg { width: 22px; height: 22px; }
 
+  .modal-nav {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.7);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1001;
+    transition: all 0.2s;
+  }
+
+  .modal-nav:hover { background: rgba(255,255,255,0.18); color: #fff; }
+  .modal-nav svg { width: 24px; height: 24px; }
+  .modal-nav.disabled { opacity: 0.3; cursor: not-allowed; }
+  .modal-nav.disabled:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); }
+
+  .modal-prev { left: 24px; }
+  .modal-next { right: 24px; }
+
   .modal-img {
     max-width: 92vw;
     max-height: 88vh;
@@ -985,7 +1011,13 @@
   <button class="modal-close" id="modalClose">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
   </button>
+  <button class="modal-nav modal-prev" id="modalPrev">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+  </button>
   <img class="modal-img" id="modalImg" alt="放大预览">
+  <button class="modal-nav modal-next" id="modalNext">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+  </button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -1417,6 +1449,14 @@
       const actualN = Math.min(items.length, n);
       grid.className = 'grid n' + actualN;
 
+      // 收集所有图片 URL 用于切换
+      const allUrls = [];
+      items.slice(0, n).forEach(item => {
+        let url = item.url;
+        if (!url && item.b64_json) url = 'data:image/png;base64,' + item.b64_json;
+        if (url) allUrls.push(url);
+      });
+
       items.slice(0, n).forEach((item, idx) => {
         let url = item.url;
         if (!url && item.b64_json) url = 'data:image/png;base64,' + item.b64_json;
@@ -1442,7 +1482,7 @@
         zoomBtn.className = 'card-btn';
         zoomBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>';
         zoomBtn.title = '查看原图';
-        zoomBtn.addEventListener('click', e => { e.stopPropagation(); openModal(url); });
+        zoomBtn.addEventListener('click', e => { e.stopPropagation(); openModal(url, allUrls); });
         actions.appendChild(zoomBtn);
 
         if (mode === 't2i') {
@@ -1645,11 +1685,47 @@
   }
 
   // ── 放大预览 ──
-  function openModal(url) {
+  let modalImages = [];
+  let modalIndex = 0;
+  const modalPrev = document.getElementById('modalPrev');
+  const modalNext = document.getElementById('modalNext');
+
+  function openModal(url, images) {
+    if (images && images.length > 0) {
+      modalImages = images;
+      modalIndex = images.indexOf(url);
+      if (modalIndex < 0) modalIndex = 0;
+    } else {
+      modalImages = [url];
+      modalIndex = 0;
+    }
     modalImg.src = url;
     modal.classList.add('open');
     document.body.style.overflow = 'hidden';
+    updateModalNav();
   }
+
+  function updateModalNav() {
+    if (modalImages.length <= 1) {
+      modalPrev.classList.add('disabled');
+      modalNext.classList.add('disabled');
+    } else {
+      modalPrev.classList.toggle('disabled', modalIndex === 0);
+      modalNext.classList.toggle('disabled', modalIndex === modalImages.length - 1);
+    }
+  }
+
+  function switchModalImage(dir) {
+    if (modalImages.length <= 1) return;
+    const newIndex = modalIndex + dir;
+    if (newIndex < 0 || newIndex >= modalImages.length) return;
+    modalIndex = newIndex;
+    modalImg.src = modalImages[modalIndex];
+    updateModalNav();
+  }
+
+  modalPrev.addEventListener('click', e => { e.stopPropagation(); switchModalImage(-1); });
+  modalNext.addEventListener('click', e => { e.stopPropagation(); switchModalImage(1); });
 
   // ── 缩略图加载优化 ──
   const THUMB_MAX_WIDTH = 600;
@@ -1725,7 +1801,12 @@
 
   modalClose.addEventListener('click', closeModal);
   modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.classList.contains('open')) closeModal(); });
+  document.addEventListener('keydown', e => {
+    if (!modal.classList.contains('open')) return;
+    if (e.key === 'Escape') closeModal();
+    if (e.key === 'ArrowLeft') switchModalImage(-1);
+    if (e.key === 'ArrowRight') switchModalImage(1);
+  });
 
   // ── Toast ──
   function showToast(msg, type) {
