@@ -750,27 +750,44 @@ async function handleAdminAPI(db, path, method, body, request) {
   }
 
   if (path.startsWith('/api/admin/messages') && method === 'GET') {
-    let sql = `
+    const page = parseInt(url.searchParams.get('page') || '1', 10);
+    const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+    const offset = (page - 1) * limit;
+
+    let countSql = 'SELECT COUNT(*) as total FROM chat_messages cm WHERE 1=1';
+    let listSql = `
       SELECT cm.*, u.email
       FROM chat_messages cm
       LEFT JOIN users u ON cm.user_id = u.id
       WHERE 1=1
     `;
-    const params = [];
+    const countParams = [];
+    const listParams = [];
+
     if (userId) {
-      sql += ' AND cm.user_id = ?';
-      params.push(userId);
+      countSql += ' AND cm.user_id = ?';
+      listSql += ' AND cm.user_id = ?';
+      countParams.push(userId);
+      listParams.push(userId);
     }
     const sd = buildDateFilter('cm.created_at');
     if (sd.params.length > 0) {
-      sql += sd.sql;
-      params.push(...sd.params);
+      countSql += sd.sql;
+      listSql += sd.sql;
+      countParams.push(...sd.params);
+      listParams.push(...sd.params);
     }
-    sql += ' ORDER BY cm.created_at DESC LIMIT ?';
-    params.push(limit);
 
-    const messages = await db.prepare(sql).bind(...params).all();
-    return jsonResponse({ messages: messages.results || messages }, 200, request);
+    const countResult = await db.prepare(countSql).bind(...countParams).first();
+    listSql += ' ORDER BY cm.created_at DESC LIMIT ? OFFSET ?';
+    listParams.push(limit, offset);
+
+    const listResult = await db.prepare(listSql).bind(...listParams).all();
+    return jsonResponse({
+      messages: listResult.results || listResult,
+      total: countResult?.total || 0,
+      page, limit,
+    }, 200, request);
   }
 
   const messageDeleteMatch = path.match(/^\/api\/admin\/messages\/([^\/]+)\/delete$/);
@@ -1098,6 +1115,37 @@ tr:hover { background: #334155; }
   padding: 40px;
   color: #64748b;
 }
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+.page-info {
+  color: #94a3b8;
+  font-size: 14px;
+  margin-right: 12px;
+}
+.page-btn {
+  min-width: 36px;
+  padding: 6px 12px;
+  font-size: 14px;
+}
+.page-btn.active {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  border-color: transparent;
+}
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.page-dots {
+  color: #64748b;
+  padding: 0 4px;
+}
 </style>
 </head>
 <body>
@@ -1209,6 +1257,9 @@ tr:hover { background: #334155; }
 <script>
 var adminToken = localStorage.getItem('admin_token') || '';
 var currentFilter = { userId: '', startDate: '', endDate: '' };
+var messagePage = 1;
+var messageTotal = 0;
+var messagePageSize = 50;
 var allUsers = [];
 
 function apiGet(path) {
@@ -1301,6 +1352,7 @@ function applyFilter() {
   currentFilter.userId = document.getElementById('filterUser').value;
   currentFilter.startDate = document.getElementById('filterStart').value;
   currentFilter.endDate = document.getElementById('filterEnd').value;
+  messagePage = 1;
   updateFilterInfo();
   refreshAll();
 }
@@ -1310,6 +1362,7 @@ function clearFilter() {
   document.getElementById('filterUser').value = '';
   document.getElementById('filterStart').value = '';
   document.getElementById('filterEnd').value = '';
+  messagePage = 1;
   updateFilterInfo();
   refreshAll();
 }
@@ -1470,8 +1523,11 @@ function deleteSession(id) {
 function loadMessages() {
   var el = document.getElementById('messages-table');
   el.innerHTML = '<div class="loading">加载中...</div>';
-  apiGet('/messages' + buildQuery() + '&limit=200').then(function(data) {
+  var query = buildQuery();
+  var url = '/messages' + (query ? query + '&' : '?') + 'page=' + messagePage + '&limit=' + messagePageSize;
+  apiGet(url).then(function(data) {
     var messages = data.messages || [];
+    messageTotal = data.total || 0;
     if (messages.length === 0) {
       el.innerHTML = '<div class="empty">暂无消息</div>';
       return;
@@ -1496,6 +1552,7 @@ function loadMessages() {
         '</tr>';
     });
     html += '</tbody></table>';
+    html += buildMessagePagination();
     el.innerHTML = html;
     el.querySelectorAll('[data-action="delete-message"]').forEach(function(btn) {
       btn.addEventListener('click', function() {
@@ -1504,8 +1561,49 @@ function loadMessages() {
         deleteMessage(mid);
       });
     });
+    bindMessagePagination(el);
   }).catch(function(e) {
     el.innerHTML = '<div class="error">' + e.message + '</div>';
+  });
+}
+
+function buildMessagePagination() {
+  var totalPages = Math.ceil(messageTotal / messagePageSize) || 1;
+  var html = '<div class="pagination">';
+  html += '<span class="page-info">共 ' + messageTotal + ' 条，第 ' + messagePage + '/' + totalPages + ' 页</span>';
+  html += '<button class="btn page-btn" data-page="prev" ' + (messagePage <= 1 ? 'disabled' : '') + '>上一页</button>';
+  var start = Math.max(1, messagePage - 2);
+  var end = Math.min(totalPages, messagePage + 2);
+  if (start > 1) {
+    html += '<button class="btn page-btn" data-page="1">1</button>';
+    if (start > 2) html += '<span class="page-dots">...</span>';
+  }
+  for (var p = start; p <= end; p++) {
+    html += '<button class="btn page-btn ' + (p === messagePage ? 'active' : '') + '" data-page="' + p + '">' + p + '</button>';
+  }
+  if (end < totalPages) {
+    if (end < totalPages - 1) html += '<span class="page-dots">...</span>';
+    html += '<button class="btn page-btn" data-page="' + totalPages + '">' + totalPages + '</button>';
+  }
+  html += '<button class="btn page-btn" data-page="next" ' + (messagePage >= totalPages ? 'disabled' : '') + '>下一页</button>';
+  html += '</div>';
+  return html;
+}
+
+function bindMessagePagination(el) {
+  var totalPages = Math.ceil(messageTotal / messagePageSize) || 1;
+  el.querySelectorAll('.page-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var page = btn.getAttribute('data-page');
+      if (page === 'prev') {
+        if (messagePage > 1) messagePage--;
+      } else if (page === 'next') {
+        if (messagePage < totalPages) messagePage++;
+      } else {
+        messagePage = parseInt(page, 10);
+      }
+      loadMessages();
+    });
   });
 }
 
