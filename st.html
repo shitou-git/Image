@@ -422,11 +422,35 @@
 
   .img-card img {
     width: 100%;
-    height: auto;
+    height: 100%;
     display: block;
-    max-height: 500px;
     object-fit: contain;
     background: var(--card);
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .img-card img.loaded {
+    opacity: 1;
+  }
+
+  .card-shimmer {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--elevated) 25%, var(--card) 50%, var(--elevated) 75%);
+    background-size: 200% 100%;
+    animation: shine 1.4s ease-in-out infinite;
+  }
+
+  .card-shimmer.hidden {
+    display: none;
+  }
+
+  @keyframes shine {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
   }
 
   .img-card .card-actions {
@@ -1400,17 +1424,20 @@
 
         const card = document.createElement('div');
         card.className = 'img-card';
+        card.style.aspectRatio = size.split('x')[0] + '/' + size.split('x')[1];
+
+        const shimmer = document.createElement('div');
+        shimmer.className = 'card-shimmer';
+        card.appendChild(shimmer);
 
         const imgEl = document.createElement('img');
-        imgEl.src = url;
         imgEl.alt = '生成图像 ' + (idx + 1);
-        imgEl.loading = 'lazy';
+        imgEl.className = 'card-img';
         imgEl.decoding = 'async';
 
         const actions = document.createElement('div');
         actions.className = 'card-actions';
 
-        // 放大镜
         const zoomBtn = document.createElement('button');
         zoomBtn.className = 'card-btn';
         zoomBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>';
@@ -1418,7 +1445,6 @@
         zoomBtn.addEventListener('click', e => { e.stopPropagation(); openModal(url); });
         actions.appendChild(zoomBtn);
 
-        // 图生图按钮（仅文生图模式下显示）
         if (mode === 't2i') {
           const img2imgBtn = document.createElement('button');
           img2imgBtn.className = 'card-btn';
@@ -1435,6 +1461,8 @@
         card.appendChild(imgEl);
         card.appendChild(actions);
         grid.appendChild(card);
+
+        loadThumbnail(imgEl, url, shimmer);
       });
 
       showToast('生成完成！', 'success');
@@ -1621,6 +1649,73 @@
     modalImg.src = url;
     modal.classList.add('open');
     document.body.style.overflow = 'hidden';
+  }
+
+  // ── 缩略图加载优化 ──
+  const THUMB_MAX_WIDTH = 600;
+  let loadQueue = [];
+  let isLoading = false;
+
+  function loadThumbnail(imgEl, originalUrl, shimmerEl) {
+    loadQueue.push({ imgEl, originalUrl, shimmerEl });
+    processLoadQueue();
+  }
+
+  function processLoadQueue() {
+    if (isLoading || loadQueue.length === 0) return;
+    isLoading = true;
+    const task = loadQueue.shift();
+
+    const tempImg = new Image();
+    tempImg.decoding = 'async';
+    tempImg.crossOrigin = 'anonymous';
+
+    const onDone = (thumbnailUrl) => {
+      task.imgEl.src = thumbnailUrl || task.originalUrl;
+      task.imgEl.classList.add('loaded');
+      if (task.shimmerEl) task.shimmerEl.classList.add('hidden');
+      isLoading = false;
+      setTimeout(processLoadQueue, 50);
+    };
+
+    tempImg.onload = () => {
+      try {
+        const thumbUrl = createThumbnail(tempImg);
+        onDone(thumbUrl);
+      } catch (e) {
+        onDone(null);
+      }
+    };
+
+    tempImg.onerror = () => {
+      onDone(null);
+    };
+
+    tempImg.src = task.originalUrl;
+  }
+
+  function createThumbnail(img) {
+    const w = img.naturalWidth;
+    const h = img.naturalHeight;
+    if (w <= THUMB_MAX_WIDTH) return img.src;
+
+    const ratio = THUMB_MAX_WIDTH / w;
+    const thumbW = THUMB_MAX_WIDTH;
+    const thumbH = Math.round(h * ratio);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = thumbW;
+    canvas.height = thumbH;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, 0, 0, thumbW, thumbH);
+
+    try {
+      return canvas.toDataURL('image/jpeg', 0.82);
+    } catch (e) {
+      return img.src;
+    }
   }
 
   function closeModal() {
