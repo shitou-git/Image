@@ -375,6 +375,8 @@
 
   .left-footer { margin-top: auto; padding-top: 14px; text-align: center; font-size: 0.7rem; color: var(--text-muted); }
 
+  .global-footer { display: none; padding: 14px 20px; text-align: center; font-size: 0.7rem; color: var(--text-muted); background: var(--bg); }
+
   /* ───── Right Panel ───── */
   .right {
     flex: 1;
@@ -857,9 +859,11 @@
   /* ───── Responsive ───── */
   @media (max-width: 860px) {
     body { overflow: auto; }
-    .app { flex-direction: column; height: auto; }
+    .app { flex-direction: column; min-height: 100vh; height: auto; }
     .left { width: 100%; min-width: 0; border-right: none; border-bottom: 1px solid var(--border); overflow-y: visible; }
-    .right { min-height: 60vh; padding: 20px; }
+    .left-footer { display: none; }
+    .global-footer { display: block; }
+    .right { min-height: auto; padding: 20px; flex: 1; }
   }
 
   @media (max-width: 500px) {
@@ -1213,6 +1217,10 @@
         <video controls autoplay playsinline id="videoEl"></video>
       </div>
     </div>
+  </div>
+
+  <div class="global-footer">
+    @Stone || Powered by Sapiens AI ·
   </div>
 </div>
 
