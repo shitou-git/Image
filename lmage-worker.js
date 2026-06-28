@@ -138,10 +138,25 @@ async function ensureDB(db) {
   }
 }
 
-function getUserId(request) {
+async function getUserId(request, db) {
   const authHeader = request && request.headers ? request.headers.get('Authorization') : null;
   if (authHeader && authHeader.startsWith('Bearer ')) {
-    return authHeader.substring(7);
+    const token = authHeader.substring(7);
+    // 如果有 D1，查询 sessions 表获取真实 user_id
+    if (db) {
+      try {
+        const session = await db.prepare(
+          'SELECT user_id FROM sessions WHERE id = ?1 AND expires_at > ?2'
+        ).bind(token, Date.now()).first();
+        if (session && session.user_id) {
+          return session.user_id;
+        }
+      } catch (e) {
+        console.error('Session lookup error:', e);
+      }
+    }
+    // D1 不可用时回退到 token 本身（兼容旧数据）
+    return token;
   }
   const deviceId = request && request.headers ? request.headers.get('X-Device-Id') : null;
   if (deviceId) return 'dev:' + deviceId;
@@ -160,7 +175,7 @@ async function handleSaveImage(db, kv, body, request) {
 
   const id = crypto.randomUUID();
   const ts = Date.now();
-  const userId = getUserId(request);
+  const userId = await getUserId(request, db);
 
   if (db) {
     try {
@@ -208,7 +223,7 @@ async function handleListImages(db, kv, url, request) {
   const limit = parseInt(url.searchParams.get('limit') || '20', 10);
   const favorite = url.searchParams.get('favorite');
   const withImage = url.searchParams.get('with_image') === '1';
-  const userId = getUserId(request);
+  const userId = await getUserId(request, db);
 
   if (db) {
     try {
@@ -287,7 +302,7 @@ async function handleListImages(db, kv, url, request) {
 }
 
 async function handleGetImage(db, kv, id, request) {
-  const userId = getUserId(request);
+  const userId = await getUserId(request, db);
 
   if (db) {
     try {
@@ -315,7 +330,7 @@ async function handleGetImage(db, kv, id, request) {
 }
 
 async function handleDeleteImage(db, kv, id, request) {
-  const userId = getUserId(request);
+  const userId = await getUserId(request, db);
 
   if (db) {
     try {
@@ -352,7 +367,7 @@ async function handleDeleteImage(db, kv, id, request) {
 
 async function handleUpdateImage(db, kv, id, body, request) {
   const { is_favorite } = body || {};
-  const userId = getUserId(request);
+  const userId = await getUserId(request, db);
 
   if (db) {
     try {

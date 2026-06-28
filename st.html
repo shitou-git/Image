@@ -426,6 +426,155 @@
     color: var(--text-muted);
   }
 
+  /* ── User auth ── */
+  .user-btn {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--card);
+    color: var(--text-dim);
+    font-size: 0.78rem;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .user-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+  .user-btn svg { width: 16px; height: 16px; }
+
+  .user-menu {
+    position: absolute;
+    top: 56px;
+    right: 20px;
+    background: var(--elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 6px 0;
+    min-width: 160px;
+    z-index: 100;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    display: none;
+  }
+  .user-menu.show { display: block; }
+  .user-menu-item {
+    padding: 8px 14px;
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .user-menu-item:hover { background: var(--card); color: var(--text); }
+  .user-menu-item svg { width: 14px; height: 14px; opacity: 0.7; }
+  .user-menu-sep { height: 1px; background: var(--border); margin: 4px 10px; }
+  .user-menu-email {
+    padding: 8px 14px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 4px;
+    word-break: break-all;
+  }
+
+  /* ── Auth modal ── */
+  .auth-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(6px);
+  }
+  .auth-modal-overlay.open { display: flex; }
+  .auth-modal {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    width: 360px;
+    max-width: 92vw;
+    padding: 24px;
+    box-shadow: 0 16px 60px rgba(0,0,0,0.5);
+  }
+  .auth-modal h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+  .auth-tabs {
+    display: flex;
+    gap: 2px;
+    background: var(--card);
+    border-radius: var(--radius-sm);
+    padding: 3px;
+    margin-bottom: 16px;
+  }
+  .auth-tab {
+    flex: 1;
+    padding: 7px 0;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    font-weight: 600;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .auth-tab.active { background: var(--accent-dim); color: var(--accent); }
+  .auth-field { margin-bottom: 12px; }
+  .auth-field label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-dim);
+    display: block;
+    margin-bottom: 5px;
+  }
+  .auth-field input {
+    width: 100%;
+    padding: 9px 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 0.85rem;
+    font-family: var(--font);
+    outline: none;
+    transition: border 0.2s, box-shadow 0.2s;
+  }
+  .auth-field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+  .auth-field input::placeholder { color: var(--text-muted); }
+  .auth-submit {
+    width: 100%;
+    padding: 10px 0;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, var(--accent), #2563eb);
+    color: #fff;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s;
+    margin-top: 4px;
+  }
+  .auth-submit:hover { box-shadow: 0 0 20px var(--accent-glow); }
+  .auth-submit:disabled { opacity: 0.4; cursor: not-allowed; }
+  .auth-error {
+    font-size: 0.78rem;
+    color: var(--rose);
+    margin-top: 8px;
+    text-align: center;
+    min-height: 1.2em;
+  }
+
   .preview-label {
     font-size: 0.82rem;
     font-weight: 600;
@@ -733,6 +882,16 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"/><path d="M18 12H6"/><path d="M12 6v12"/></svg>
       </div>
       <h1>图像生成</h1>
+      <button class="user-btn" id="userBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span id="userBtnText">登录</span>
+      </button>
+      <div class="user-menu" id="userMenu">
+        <div class="user-menu-email" id="userMenuEmail"></div>
+        <div class="user-menu-item" id="menuLoginHistory"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> 历史记录</div>
+        <div class="user-menu-sep"></div>
+        <div class="user-menu-item" id="menuLogout" style="color:var(--rose);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> 退出登录</div>
+      </div>
     </div>
 
     <!-- 模式切换 -->
@@ -1073,9 +1232,48 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- 登录模态框 -->
+<div class="auth-modal-overlay" id="authModal">
+  <div class="auth-modal">
+    <h3 id="authTitle">登录</h3>
+    <div class="auth-tabs">
+      <button class="auth-tab active" data-atab="login">登录</button>
+      <button class="auth-tab" data-atab="register">注册</button>
+    </div>
+    <div id="authLoginPane">
+      <div class="auth-field">
+        <label>邮箱</label>
+        <input type="email" id="loginEmail" placeholder="your@email.com">
+      </div>
+      <div class="auth-field">
+        <label>密码</label>
+        <input type="password" id="loginPwd" placeholder="输入密码">
+      </div>
+      <button class="auth-submit" id="loginSubmit">登录</button>
+    </div>
+    <div id="authRegisterPane" class="hidden">
+      <div class="auth-field">
+        <label>邮箱</label>
+        <input type="email" id="regEmail" placeholder="your@email.com">
+      </div>
+      <div class="auth-field">
+        <label>昵称（可选）</label>
+        <input type="text" id="regNickname" placeholder="显示名称">
+      </div>
+      <div class="auth-field">
+        <label>密码</label>
+        <input type="password" id="regPwd" placeholder="至少6位密码">
+      </div>
+      <button class="auth-submit" id="regSubmit">注册</button>
+    </div>
+    <div class="auth-error" id="authError"></div>
+  </div>
+</div>
+
 <script>
   const API_URL = 'https://lmage.chatlz.dpdns.org';
   const VIDEO_API_URL = 'https://video.chatlz.dpdns.org';
+  const AUTH_API_URL = 'https://chat-app-db.chatlz.dpdns.org';
 
   // ── DOM refs ──
   const modeTabs = document.getElementById('modeTabs');
@@ -1088,6 +1286,26 @@
   const modal = document.getElementById('modal');
   const modalImg = document.getElementById('modalImg');
   const modalClose = document.getElementById('modalClose');
+
+  // Auth refs
+  const userBtn = document.getElementById('userBtn');
+  const userBtnText = document.getElementById('userBtnText');
+  const userMenu = document.getElementById('userMenu');
+  const userMenuEmail = document.getElementById('userMenuEmail');
+  const menuLoginHistory = document.getElementById('menuLoginHistory');
+  const menuLogout = document.getElementById('menuLogout');
+  const authModal = document.getElementById('authModal');
+  const authTitle = document.getElementById('authTitle');
+  const loginEmail = document.getElementById('loginEmail');
+  const loginPwd = document.getElementById('loginPwd');
+  const loginSubmit = document.getElementById('loginSubmit');
+  const regEmail = document.getElementById('regEmail');
+  const regNickname = document.getElementById('regNickname');
+  const regPwd = document.getElementById('regPwd');
+  const regSubmit = document.getElementById('regSubmit');
+  const authError = document.getElementById('authError');
+  const authLoginPane = document.getElementById('authLoginPane');
+  const authRegisterPane = document.getElementById('authRegisterPane');
 
   // T2I refs
   const promptEl = document.getElementById('prompt');
@@ -2267,6 +2485,237 @@
   btnI2i.removeEventListener('click', () => generate('i2i'));
   btnT2i.addEventListener('click', () => generateWithSave('t2i'));
   btnI2i.addEventListener('click', () => generateWithSave('i2i'));
+
+  // ═══════════════════════════════════════════════════════════════
+  // 用户认证系统
+  // ═══════════════════════════════════════════════════════════════
+
+  let currentUser = null;
+  const AUTH_TOKEN_KEY = 'img_auth_token';
+  const AUTH_USER_KEY = 'img_auth_user';
+
+  function getAuthToken() {
+    return localStorage.getItem(AUTH_TOKEN_KEY) || '';
+  }
+
+  function setAuthToken(token) {
+    if (token) localStorage.setItem(AUTH_TOKEN_KEY, token);
+    else localStorage.removeItem(AUTH_TOKEN_KEY);
+  }
+
+  function setAuthUser(user) {
+    if (user) localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+    else localStorage.removeItem(AUTH_USER_KEY);
+  }
+
+  function getAuthUser() {
+    try {
+      const raw = localStorage.getItem(AUTH_USER_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+
+  // 覆盖 apiHeaders，优先使用登录用户的 token
+  function apiHeaders() {
+    const token = getAuthToken();
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = 'Bearer ' + token;
+    } else {
+      headers['X-Device-Id'] = getDeviceId();
+    }
+    return headers;
+  }
+
+  async function authRequest(path, method, body) {
+    const res = await fetch(AUTH_API_URL + path, {
+      method: method || 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '请求失败');
+    return data;
+  }
+
+  async function checkLoginStatus() {
+    const token = getAuthToken();
+    if (!token) {
+      updateUserUI(null);
+      return;
+    }
+    try {
+      const res = await fetch(AUTH_API_URL + '/api/auth/me', {
+        headers: { 'Authorization': 'Bearer ' + token },
+      });
+      if (!res.ok) throw new Error('Token expired');
+      const data = await res.json();
+      currentUser = data;
+      setAuthUser(data);
+      updateUserUI(data);
+    } catch (e) {
+      setAuthToken('');
+      setAuthUser(null);
+      currentUser = null;
+      updateUserUI(null);
+    }
+  }
+
+  function updateUserUI(user) {
+    if (user && user.email) {
+      userBtnText.textContent = user.nickname || user.email.split('@')[0];
+      userMenuEmail.textContent = user.email;
+      userMenuEmail.style.display = '';
+      menuLoginHistory.style.display = '';
+    } else {
+      userBtnText.textContent = '登录';
+      userMenuEmail.style.display = 'none';
+      menuLoginHistory.style.display = 'none';
+    }
+  }
+
+  function openAuthModal() {
+    authError.textContent = '';
+    authModal.classList.add('open');
+    loginEmail.focus();
+  }
+
+  function closeAuthModal() {
+    authModal.classList.remove('open');
+    authError.textContent = '';
+  }
+
+  async function doLogin() {
+    const email = loginEmail.value.trim();
+    const password = loginPwd.value.trim();
+    if (!email || !password) {
+      authError.textContent = '请填写邮箱和密码';
+      return;
+    }
+    loginSubmit.disabled = true;
+    loginSubmit.textContent = '登录中...';
+    try {
+      const data = await authRequest('/api/auth/login', 'POST', { email, password });
+      setAuthToken(data.token);
+      setAuthUser(data.user);
+      currentUser = data.user;
+      updateUserUI(data.user);
+      closeAuthModal();
+      showToast('登录成功', 'success');
+      loginEmail.value = '';
+      loginPwd.value = '';
+    } catch (e) {
+      authError.textContent = e.message;
+    } finally {
+      loginSubmit.disabled = false;
+      loginSubmit.textContent = '登录';
+    }
+  }
+
+  async function doRegister() {
+    const email = regEmail.value.trim();
+    const password = regPwd.value.trim();
+    const nickname = regNickname.value.trim();
+    if (!email || !password) {
+      authError.textContent = '请填写邮箱和密码';
+      return;
+    }
+    if (password.length < 6) {
+      authError.textContent = '密码至少6位';
+      return;
+    }
+    regSubmit.disabled = true;
+    regSubmit.textContent = '注册中...';
+    try {
+      const data = await authRequest('/api/auth/register', 'POST', { email, password, nickname });
+      setAuthToken(data.token);
+      setAuthUser(data.user);
+      currentUser = data.user;
+      updateUserUI(data.user);
+      closeAuthModal();
+      showToast('注册成功，已自动登录', 'success');
+      regEmail.value = '';
+      regPwd.value = '';
+      regNickname.value = '';
+    } catch (e) {
+      authError.textContent = e.message;
+    } finally {
+      regSubmit.disabled = false;
+      regSubmit.textContent = '注册';
+    }
+  }
+
+  async function doLogout() {
+    const token = getAuthToken();
+    if (token) {
+      try {
+        await fetch(AUTH_API_URL + '/api/auth/logout', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token },
+        });
+      } catch (e) {}
+    }
+    setAuthToken('');
+    setAuthUser(null);
+    currentUser = null;
+    updateUserUI(null);
+    showToast('已退出登录', 'success');
+  }
+
+  // ── 事件监听 ──
+  userBtn.addEventListener('click', () => {
+    if (currentUser && currentUser.email) {
+      userMenu.classList.toggle('show');
+    } else {
+      openAuthModal();
+    }
+  });
+
+  document.addEventListener('click', e => {
+    if (!userBtn.contains(e.target) && !userMenu.contains(e.target)) {
+      userMenu.classList.remove('show');
+    }
+  });
+
+  menuLogout.addEventListener('click', () => {
+    userMenu.classList.remove('show');
+    doLogout();
+  });
+
+  menuLoginHistory.addEventListener('click', () => {
+    userMenu.classList.remove('show');
+    // 切换到历史记录标签
+    const tab = document.querySelector('.result-tab[data-rtab="history"]');
+    if (tab) tab.click();
+  });
+
+  authModal.addEventListener('click', e => {
+    if (e.target === authModal) closeAuthModal();
+  });
+
+  // 登录/注册标签切换
+  document.querySelectorAll('.auth-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const atab = tab.getAttribute('data-atab');
+      document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      authLoginPane.classList.toggle('hidden', atab !== 'login');
+      authRegisterPane.classList.toggle('hidden', atab !== 'register');
+      authTitle.textContent = atab === 'login' ? '登录' : '注册';
+      authError.textContent = '';
+    });
+  });
+
+  loginSubmit.addEventListener('click', doLogin);
+  regSubmit.addEventListener('click', doRegister);
+
+  loginPwd.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+  regPwd.addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });
+
+  // 页面加载时检查登录状态
+  checkLoginStatus();
 </script>
 </body>
 </html>
