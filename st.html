@@ -522,6 +522,88 @@
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
   .toast.ok { border-color: var(--green); }
 
+  /* ───── Video status ───── */
+  .video-status {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    text-align: center;
+    gap: 12px;
+  }
+
+  .video-status .status-icon { width: 40px; height: 40px; opacity: 0.4; }
+  .video-status .status-text { font-size: 0.9rem; color: var(--text-dim); }
+  .video-status .status-progress { font-size: 0.78rem; color: var(--text-muted); }
+
+  .video-progress-track {
+    width: 200px;
+    height: 4px;
+    background: var(--card);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .video-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 1s ease;
+    width: 0%;
+  }
+
+  .video-player {
+    display: none;
+    width: 100%;
+    max-width: 720px;
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--card);
+    border: 1px solid var(--border);
+  }
+
+  .video-player.show { display: block; }
+
+  .video-player video {
+    width: 100%;
+    display: block;
+  }
+
+  .video-dur-label { font-size: 0.72rem; color: var(--text-muted); margin-bottom: 4px; }
+
+  .dur-chips { display: flex; gap: 4px; flex-wrap: wrap; }
+  .dur-chip {
+    padding: 3px 9px;
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 0.7rem;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .dur-chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+  .dur-chip.active { border-color: var(--accent); color: #fff; background: var(--accent); }
+
+  .vid-select-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.3px; color: var(--text-muted); margin-bottom: 4px; }
+  .vid-select { width: 100%; padding: 8px 12px; padding-right: 30px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: 0.82rem; cursor: pointer; outline: none; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%23808080' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; }
+  .vid-select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+  .vid-select option { background: var(--elevated); color: var(--text); }
+
+  /* ───── Keyframes URL rows ───── */
+  .keyframe-url-row { display: flex; gap: 4px; align-items: center; margin-bottom: 4px; }
+  .keyframe-url-row .img-url-input { flex: 1; }
+  .kf-remove {
+    width: 28px; height: 28px; border-radius: 50%; border: none;
+    background: rgba(200,60,60,0.2); color: var(--rose); cursor: pointer;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    transition: background 0.2s;
+  }
+  .kf-remove:hover { background: rgba(200,60,60,0.4); }
+  .kf-remove.hidden { display: none; }
+
   /* ───── Responsive ───── */
   @media (max-width: 860px) {
     body { overflow: auto; }
@@ -556,6 +638,129 @@
     <div class="mode-tabs" id="modeTabs">
       <button class="mode-tab active" data-mode="t2i">文生图</button>
       <button class="mode-tab" data-mode="i2i">图生图</button>
+      <button class="mode-tab" data-mode="video">视频生成</button>
+    </div>
+
+    <!-- ====== 视频生成 ====== -->
+    <div id="videoPanel" class="hidden">
+
+      <div class="field">
+        <div class="label-row"><label for="videoPrompt">提示词</label></div>
+        <div class="textarea-wrap">
+          <textarea id="videoPrompt" placeholder="描述视频内容，如：A cinematic shot of a cat walking on the beach at sunset, warm golden lighting, realistic motion" maxlength="1000" rows="3"></textarea>
+          <button class="textarea-clear" id="clearVideoPrompt">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="label-row"><label>反向提示词</label></div>
+        <textarea id="videoNegativePrompt" placeholder="描述需要避免的内容，如：blurry, low quality, distorted faces" maxlength="500" rows="2" style="min-height:50px;"></textarea>
+      </div>
+
+      <div class="field">
+        <div class="label-row"><label for="videoMode">生成模式</label></div>
+        <select id="videoMode">
+          <option value="ti2vid" selected>文生视频 (Text-to-Video)</option>
+          <option value="keyframes">关键帧动画 (Keyframes)</option>
+        </select>
+      </div>
+
+      <!-- 图生视频 / 关键帧图片输入 -->
+      <div id="videoImageSection" class="hidden">
+        <div class="img-source-tabs" id="videoImgSourceTabs">
+          <button class="img-source-tab active" data-vsrc="upload">本地上传</button>
+          <button class="img-source-tab" data-vsrc="url">网络地址</button>
+        </div>
+        <div class="img-source-pane active" id="vsrcUpload">
+          <div class="file-upload-area" id="videoFileUploadArea">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <p>点击上传参考图片</p>
+            <input type="file" accept="image/*" id="videoFileInput">
+          </div>
+          <div class="img-preview-wrap" id="videoUploadPreviewWrap">
+            <div class="img-preview-placeholder">未选择图片</div>
+            <img id="videoUploadPreview" alt="">
+            <button class="img-clear" id="videoUploadClearBtn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="img-source-pane" id="vsrcUrl">
+          <div class="img-preview-wrap" id="videoUrlPreviewWrap">
+            <div class="img-preview-placeholder">输入图片地址后自动加载</div>
+            <img id="videoUrlPreview" alt="">
+            <button class="img-clear" id="videoUrlClearBtn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <input class="img-url-input" id="videoImgUrl" placeholder="输入图片 URL，如 https://example.com/image.png">
+        </div>
+
+        <!-- 关键帧多图输入（仅 keyframes 模式显示） -->
+        <div id="videoKeyframesInput" class="hidden" style="margin-top:8px;">
+          <label>关键帧图片 URL（多帧按顺序排列）</label>
+          <div id="keyframesUrlList">
+            <div class="keyframe-url-row"><input class="img-url-input kf-url" placeholder="关键帧 1 URL"><button class="kf-remove hidden"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+            <div class="keyframe-url-row"><input class="img-url-input kf-url" placeholder="关键帧 2 URL"><button class="kf-remove hidden"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+          </div>
+          <button id="addKeyframeBtn" style="margin-top:6px;padding:4px 12px;border:1px dashed var(--border);border-radius:var(--radius-sm);background:transparent;color:var(--text-muted);font-size:0.72rem;font-family:var(--font);cursor:pointer;width:100%;">+ 添加关键帧</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="ctrl">
+          <label>分辨率 / 宽高比</label>
+          <select id="videoRatio">
+            <option value="1152x768" selected>16:9 横版 (1152×768)</option>
+            <option value="768x1152">9:16 竖版 (768×1152)</option>
+            <option value="768x768">1:1 方形 (768×768)</option>
+            <option value="1024x768">4:3 传统横版 (1024×768)</option>
+            <option value="768x1024">3:4 竖版 (768×1024)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="label-row"><label>视频时长</label></div>
+        <div class="dur-chips">
+          <button class="dur-chip active" data-frames="81" data-fps="24">约 3 秒</button>
+          <button class="dur-chip" data-frames="121" data-fps="24">约 5 秒</button>
+          <button class="dur-chip" data-frames="241" data-fps="24">约 10 秒</button>
+          <button class="dur-chip" data-frames="441" data-fps="24">约 18 秒</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="ctrl">
+          <label>帧率 (frame_rate)</label>
+          <select id="videoFrameRate">
+            <option value="1">1 fps</option>
+            <option value="8">8 fps</option>
+            <option value="12">12 fps</option>
+            <option value="16">16 fps</option>
+            <option value="20">20 fps</option>
+            <option value="24" selected>24 fps</option>
+            <option value="30">30 fps</option>
+            <option value="60">60 fps</option>
+          </select>
+        </div>
+        <div class="ctrl">
+          <label>推理步数</label>
+          <input type="number" id="videoSteps" class="img-url-input" placeholder="默认" min="1" max="100">
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="label-row"><label>随机种子 (seed)</label></div>
+        <input type="number" id="videoSeed" class="img-url-input" placeholder="留空则随机生成" min="0" max="999999999">
+      </div>
+
+      <button class="generate-btn" id="generateVideo">
+        <span class="spinner"></span>
+        <span class="btn-text"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px;"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg> 生成视频</span>
+      </button>
     </div>
 
     <!-- ====== 文生图 ====== -->
@@ -726,6 +931,19 @@
       <p>输入提示词，点击生成</p>
     </div>
     <div class="grid" id="grid"></div>
+
+    <!-- 视频结果区域 -->
+    <div id="videoResultArea" class="hidden" style="width:100%;max-width:720px;">
+      <div class="video-status" id="videoStatus">
+        <svg class="status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        <div class="status-text" id="videoStatusText">任务已提交，等待处理...</div>
+        <div class="video-progress-track"><div class="video-progress-fill" id="videoProgressFill"></div></div>
+        <div class="status-progress" id="videoStatusProgress">0%</div>
+      </div>
+      <div class="video-player" id="videoPlayer">
+        <video controls autoplay playsinline id="videoEl"></video>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -741,11 +959,13 @@
 
 <script>
   const API_URL = 'https://lmage.chatlz.dpdns.org';
+  const VIDEO_API_URL = 'https://video.chatlz.dpdns.org';
 
   // ── DOM refs ──
   const modeTabs = document.getElementById('modeTabs');
   const t2iPanel = document.getElementById('t2iPanel');
   const i2iPanel = document.getElementById('i2iPanel');
+  const videoPanel = document.getElementById('videoPanel');
   const grid = document.getElementById('grid');
   const placeholder = document.getElementById('placeholder');
   const toast = document.getElementById('toast');
@@ -780,6 +1000,42 @@
   const nI2i = document.getElementById('nI2i');
   const btnI2i = document.getElementById('generateI2i');
 
+  // Video refs
+  const videoPrompt = document.getElementById('videoPrompt');
+  const clearVideoPrompt = document.getElementById('clearVideoPrompt');
+  const videoNegativePrompt = document.getElementById('videoNegativePrompt');
+  const videoMode = document.getElementById('videoMode');
+  const videoRatio = document.getElementById('videoRatio');
+  const videoFrameRate = document.getElementById('videoFrameRate');
+  const videoSteps = document.getElementById('videoSteps');
+  const videoSeed = document.getElementById('videoSeed');
+  const btnVideo = document.getElementById('generateVideo');
+  const videoResultArea = document.getElementById('videoResultArea');
+  const videoStatus = document.getElementById('videoStatus');
+  const videoStatusText = document.getElementById('videoStatusText');
+  const videoProgressFill = document.getElementById('videoProgressFill');
+  const videoStatusProgress = document.getElementById('videoStatusProgress');
+  const videoPlayer = document.getElementById('videoPlayer');
+  const videoEl = document.getElementById('videoEl');
+  // Video image
+  const videoImageSection = document.getElementById('videoImageSection');
+  const videoImgSourceTabs = document.getElementById('videoImgSourceTabs');
+  const vsrcUpload = document.getElementById('vsrcUpload');
+  const vsrcUrl = document.getElementById('vsrcUrl');
+  const videoFileInput = document.getElementById('videoFileInput');
+  const videoFileUploadArea = document.getElementById('videoFileUploadArea');
+  const videoUploadPreviewWrap = document.getElementById('videoUploadPreviewWrap');
+  const videoUploadPreview = document.getElementById('videoUploadPreview');
+  const videoUploadClearBtn = document.getElementById('videoUploadClearBtn');
+  const videoUrlPreviewWrap = document.getElementById('videoUrlPreviewWrap');
+  const videoUrlPreview = document.getElementById('videoUrlPreview');
+  const videoUrlClearBtn = document.getElementById('videoUrlClearBtn');
+  const videoImgUrl = document.getElementById('videoImgUrl');
+  // Keyframes
+  const videoKeyframesInput = document.getElementById('videoKeyframesInput');
+  const keyframesUrlList = document.getElementById('keyframesUrlList');
+  const addKeyframeBtn = document.getElementById('addKeyframeBtn');
+
   let timer;
   // 供图生图跳转使用的存储
   let pendingImageUrl = '';
@@ -797,6 +1053,19 @@
     tab.classList.add('active');
     t2iPanel.classList.toggle('hidden', mode !== 't2i');
     i2iPanel.classList.toggle('hidden', mode !== 'i2i');
+    videoPanel.classList.toggle('hidden', mode !== 'video');
+
+    if (mode === 'video') {
+      placeholder.style.display = 'none';
+      grid.classList.add('hidden');
+    } else {
+      videoResultArea.classList.add('hidden');
+      videoPlayer.classList.remove('show');
+      const hasItems = grid.querySelectorAll('.img-card').length > 0;
+      placeholder.style.display = hasItems ? 'none' : '';
+      grid.classList.remove('hidden');
+    }
+
     // 如果有待传入的图片且切换到 i2i
     if (mode === 'i2i' && pendingImageUrl) {
       setI2iImage(pendingImageUrl);
@@ -909,6 +1178,110 @@
     charCount.textContent = '0';
     document.getElementById('clearPrompt').classList.remove('show');
     promptEl.focus();
+  });
+
+  // ── 视频提示词清除 ──
+  videoPrompt.addEventListener('input', () => {
+    clearVideoPrompt.classList.toggle('show', videoPrompt.value.length > 0);
+  });
+
+  clearVideoPrompt.addEventListener('click', () => {
+    videoPrompt.value = '';
+    clearVideoPrompt.classList.remove('show');
+    videoPrompt.focus();
+  });
+
+  // ── 视频时长选择 ──
+  document.querySelectorAll('.dur-chip').forEach(el => {
+    el.addEventListener('click', () => {
+      document.querySelectorAll('.dur-chip').forEach(c => c.classList.remove('active'));
+      el.classList.add('active');
+    });
+  });
+
+  // ── 视频图片来源切换 ──
+  videoImgSourceTabs.addEventListener('click', e => {
+    const tab = e.target.closest('.img-source-tab');
+    if (!tab) return;
+    videoImgSourceTabs.querySelectorAll('.img-source-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const src = tab.getAttribute('data-vsrc');
+    vsrcUpload.classList.toggle('active', src === 'upload');
+    vsrcUrl.classList.toggle('active', src === 'url');
+  });
+
+  // ── 视频本地上传 ──
+  videoFileUploadArea.addEventListener('click', () => videoFileInput.click());
+  videoFileInput.addEventListener('change', () => {
+    const file = videoFileInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      videoUploadPreview.src = e.target.result;
+      videoUploadPreviewWrap.classList.add('has-img');
+    };
+    reader.readAsDataURL(file);
+  });
+  videoUploadClearBtn.addEventListener('click', () => {
+    videoUploadPreview.src = '';
+    videoUploadPreviewWrap.classList.remove('has-img');
+    videoFileInput.value = '';
+  });
+
+  // ── 视频网络地址 ──
+  let videoUrlLoadTimer;
+  videoImgUrl.addEventListener('input', () => {
+    clearTimeout(videoUrlLoadTimer);
+    const url = videoImgUrl.value.trim();
+    if (!url) {
+      videoUrlPreviewWrap.classList.remove('has-img');
+      return;
+    }
+    videoUrlLoadTimer = setTimeout(() => {
+      videoUrlPreview.src = url;
+      videoUrlPreview.onload = () => videoUrlPreviewWrap.classList.add('has-img');
+      videoUrlPreview.onerror = () => {
+        videoUrlPreviewWrap.classList.remove('has-img');
+        showToast('图片加载失败，请检查地址', 'error');
+      };
+    }, 500);
+  });
+  videoUrlClearBtn.addEventListener('click', () => {
+    videoImgUrl.value = '';
+    videoUrlPreview.src = '';
+    videoUrlPreviewWrap.classList.remove('has-img');
+  });
+
+  // ── 视频模式切换（显示/隐藏图片输入） ──
+  videoMode.addEventListener('change', () => {
+    const mode = videoMode.value;
+    videoImageSection.classList.toggle('hidden', mode === 'ti2vid');
+    videoKeyframesInput.classList.toggle('hidden', mode !== 'keyframes');
+    // 更新 keyframes 行的删除按钮可见性
+    document.querySelectorAll('.keyframe-url-row').forEach(row => {
+      const btn = row.querySelector('.kf-remove');
+      if (btn) btn.classList.toggle('hidden', mode !== 'keyframes');
+    });
+  });
+
+  // ── 关键帧管理 ──
+  addKeyframeBtn.addEventListener('click', () => {
+    const count = keyframesUrlList.children.length + 1;
+    const row = document.createElement('div');
+    row.className = 'keyframe-url-row';
+    row.innerHTML = `<input class="img-url-input kf-url" placeholder="关键帧 ${count} URL"><button class="kf-remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>`;
+    keyframesUrlList.appendChild(row);
+    row.querySelector('.kf-remove').addEventListener('click', () => {
+      row.remove();
+      // 重新编号 placeholders
+      document.querySelectorAll('.kf-url').forEach((inp, i) => inp.placeholder = `关键帧 ${i + 1} URL`);
+      if (document.querySelectorAll('.kf-url').length === 0) {
+        // 至少保留两行
+        addKeyframeBtn.click();
+        addKeyframeBtn.click();
+      }
+    });
+    row.querySelector('.kf-remove').classList.remove('hidden');
   });
 
   // ── 快捷预设 ──
@@ -1062,6 +1435,174 @@
     } finally {
       btn.disabled = false;
       btn.classList.remove('loading');
+    }
+  }
+
+  // ── 生成: 视频 ──
+  btnVideo.addEventListener('click', generateVideo);
+
+  async function generateVideo() {
+    const prompt = videoPrompt.value.trim();
+    if (!prompt) { showToast('请输入视频提示词', 'error'); videoPrompt.focus(); return; }
+
+    const activeDur = document.querySelector('.dur-chip.active');
+    const num_frames = parseInt(activeDur?.getAttribute('data-frames') || '121');
+    const frame_rate = parseInt(videoFrameRate.value) || 24;
+    const [width, height] = videoRatio.value.split('x').map(Number);
+    const mode = videoMode.value;
+    const negativePrompt = videoNegativePrompt.value.trim();
+    const steps = videoSteps.value.trim();
+    const seedVal = videoSeed.value.trim();
+
+    // Collect image
+    let image = null;
+    let extraImages = [];
+    if (mode === 'keyframes') {
+      // Keyframes: collect all non-empty kf-url values
+      document.querySelectorAll('.kf-url').forEach(inp => {
+        const v = inp.value.trim();
+        if (v) extraImages.push(v);
+      });
+    } else {
+      // ti2vid with image: single image from upload or URL
+      const activeTab = videoImgSourceTabs.querySelector('.img-source-tab.active');
+      if (activeTab) {
+        const src = activeTab.getAttribute('data-vsrc');
+        if (src === 'upload' && videoUploadPreview.src && videoUploadPreviewWrap.classList.contains('has-img')) {
+          image = videoUploadPreview.src;
+        } else if (src === 'url') {
+          const url = videoImgUrl.value.trim();
+          if (url && videoUrlPreviewWrap.classList.contains('has-img')) image = url;
+        }
+      }
+    }
+
+    btnVideo.disabled = true;
+    btnVideo.classList.add('loading');
+
+    placeholder.style.display = 'none';
+    grid.classList.add('hidden');
+    videoResultArea.classList.remove('hidden');
+    videoStatus.classList.remove('hidden');
+    videoPlayer.classList.remove('show');
+    videoStatusText.textContent = '任务已提交，等待处理...';
+    videoProgressFill.style.width = '0%';
+    videoStatusProgress.textContent = '0%';
+
+    try {
+      const payload = { prompt, width, height, num_frames, frame_rate };
+      if (image) payload.image = image;
+      if (mode === 'keyframes') {
+        payload.mode = 'keyframes';
+        if (extraImages.length > 0) {
+          payload.extra_images = extraImages;
+        }
+      }
+      if (negativePrompt) payload.negative_prompt = negativePrompt;
+      if (steps) payload.num_inference_steps = parseInt(steps);
+      if (seedVal) payload.seed = parseInt(seedVal);
+
+      // 自动轮询创建：上游可能慢，持续重试直到成功
+      let video_id = null;
+      let retryCount = 0;
+      while (!video_id) {
+        retryCount++;
+        if (retryCount > 10) throw new Error('创建任务超时，请稍后重试');
+        if (retryCount > 1) {
+          videoStatusText.textContent = `上游繁忙，正在等待创建... (${(retryCount-1)}min)`;
+          await new Promise(r => setTimeout(r, 60000));
+        }
+        const res = await fetch(VIDEO_API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const text = await res.text();
+        let data;
+        try { data = JSON.parse(text); } catch (e) { throw new Error(text || '请求失败'); }
+        if (res.ok && data.retry) continue;
+        if (!res.ok) throw new Error(data.error || data.message || '请求失败');
+        video_id = data.video_id || data.id;
+        if (!video_id) continue;
+      }
+      if (!video_id) throw new Error('未获取到视频任务 ID');
+
+      videoStatusText.textContent = '任务已创建，正在轮询进度...';
+      await pollVideo(video_id);
+    } catch (e) {
+      videoResultArea.classList.add('hidden');
+      grid.classList.remove('hidden');
+      showToast(e.message, 'error');
+    } finally {
+      btnVideo.disabled = false;
+      btnVideo.classList.remove('loading');
+    }
+  }
+
+  async function pollVideo(video_id) {
+    let completed = false;
+    let attempts = 0;
+    let failCount = 0;
+    const maxAttempts = 60; // ~60 分钟超时
+    let pollController = null;
+
+    while (!completed && attempts < maxAttempts) {
+      attempts++;
+      await new Promise(r => setTimeout(r, 60000));
+
+      // 取消上一次未完成的轮询
+      if (pollController) pollController.abort();
+      pollController = new AbortController();
+
+      try {
+        const res = await fetch(VIDEO_API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'poll', video_id }),
+          signal: pollController.signal,
+        });
+        const text = await res.text();
+        let data;
+        try { data = JSON.parse(text); } catch (e) { throw new Error(text || '轮询失败'); }
+        if (!res.ok) throw new Error(data.error || data.message || '轮询失败');
+
+        failCount = 0; // 成功后重置失败计数
+
+        const status = data.status || '';
+        const progress = data.progress || 0;
+
+        videoProgressFill.style.width = progress + '%';
+        videoStatusProgress.textContent = progress + '%';
+
+        if (status === 'completed' || status === 'succeeded') {
+          const videoUrl = data.remixed_from_video_id || data.video_url || data.output?.video_url || '';
+          if (!videoUrl) throw new Error('视频生成完成但未获取到视频地址');
+
+          videoStatus.classList.add('hidden');
+          videoPlayer.classList.add('show');
+          videoEl.src = videoUrl;
+          videoEl.load();
+          showToast('视频生成完成！', 'success');
+          completed = true;
+          break;
+        } else if (status === 'failed' || status === 'error') {
+          throw new Error(data.error || '视频生成失败');
+        } else {
+          const txt = status === 'in_progress' ? `正在生成视频... ${progress}%`
+            : status === 'queued' ? `任务排队中... (${Math.round(attempts)}min)`
+            : `任务已提交，等待处理... (${Math.round(attempts)}min)`;
+          videoStatusText.textContent = txt;
+        }
+      } catch (err) {
+        if (err.name === 'AbortError') continue; // 被取消，正常跳过
+        failCount++;
+        if (failCount >= 3) throw new Error(`轮询失败: ${err.message}`);
+        // 失败重试，不更新界面
+      }
+    }
+
+    if (!completed) {
+      throw new Error('视频生成超时，请稍后重试');
     }
   }
 
