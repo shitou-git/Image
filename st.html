@@ -1,995 +1,1052 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-Hans">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agnes 文生图 - AI 图像生成</title>
-    <style>
-        :root {
-            --bg: #f5f5f7;
-            --card-bg: #ffffff;
-            --text-primary: #1d1d1f;
-            --text-secondary: #6e6e73;
-            --text-tertiary: #86868b;
-            --border: #e5e5e7;
-            --border-focus: #4f46e5;
-            --accent: #4f46e5;
-            --accent-hover: #4338ca;
-            --accent-light: #eef2ff;
-            --gradient-btn: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-            --gradient-btn-hover: linear-gradient(135deg, #4338ca 0%, #6d28d9 100%);
-            --error-bg: #fef2f2;
-            --error-text: #dc2626;
-            --error-border: #fecaca;
-            --success-bg: #f0fdf4;
-            --success-text: #16a34a;
-            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
-            --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
-            --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.12);
-            --radius-sm: 8px;
-            --radius-md: 12px;
-            --radius-lg: 16px;
-            --radius-xl: 20px;
-            --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 图像生成</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+<style>
+  :root {
+    --bg: #141414;
+    --panel: #1c1c1c;
+    --card: #242424;
+    --elevated: #2e2e2e;
+    --border: rgba(255, 255, 255, 0.06);
+    --border-hover: rgba(255, 255, 255, 0.12);
+    --text: #ffffff;
+    --text-dim: #c8c8c8;
+    --text-muted: #808080;
+    --accent: #4a9eff;
+    --accent-dim: rgba(74, 158, 255, 0.12);
+    --accent-glow: rgba(74, 158, 255, 0.2);
+    --green: #34d399;
+    --rose: #f472b6;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --font: 'Noto Sans SC', sans-serif;
+  }
 
-        body {
-            font-family: var(--font-stack);
-            background: var(--bg);
-            color: var(--text-primary);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            padding: 20px;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
+  *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+  html { font-size: 15px; height: 100%; }
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    height: 100%;
+    overflow: hidden;
+  }
+  ::selection { background: rgba(56,152,236,0.3); color: #fff; }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--elevated); border-radius: 2px; }
 
-        .app-container {
-            width: 100%;
-            max-width: 780px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
+  .app { display: flex; height: 100vh; gap: 0; }
 
-        .header {
-            text-align: center;
-            padding: 16px 0 8px;
-        }
-        .header .logo-icon {
-            font-size: 40px;
-            margin-bottom: 6px;
-            display: block;
-            animation: float 3s ease-in-out infinite;
-        }
-        @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-8px); }
-        }
-        .header h1 {
-            font-size: 28px;
-            font-weight: 700;
-            letter-spacing: -0.02em;
-            background: var(--gradient-btn);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-        .header .subtitle {
-            font-size: 14px;
-            color: var(--text-secondary);
-            margin-top: 4px;
-            font-weight: 400;
-        }
+  /* ───── Left Panel ───── */
+  .left {
+    width: 380px;
+    min-width: 380px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding: 20px 20px 14px;
+  }
 
-        .card {
-            background: var(--card-bg);
-            border-radius: var(--radius-xl);
-            padding: 24px 28px;
-            box-shadow: var(--shadow-sm);
-            border: 1px solid var(--border);
-            transition: box-shadow var(--transition);
-        }
-        .card:hover {
-            box-shadow: var(--shadow-md);
-        }
-        .card-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 16px;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-        .card-header .section-title {
-            font-size: 15px;
-            font-weight: 600;
-            color: var(--text-primary);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .card-header .section-title .dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #4f46e5;
-            display: inline-block;
-            animation: pulse-dot 2s ease-in-out infinite;
-        }
-        @keyframes pulse-dot {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.5; transform: scale(1.6); }
-        }
+  .left-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
 
-        .api-key-row {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-        .api-key-input-wrapper {
-            position: relative;
-            flex: 1;
-            min-width: 200px;
-        }
-        .api-key-input-wrapper input {
-            width: 100%;
-            padding: 10px 40px 10px 14px;
-            border: 1.5px solid var(--border);
-            border-radius: var(--radius-sm);
-            font-size: 14px;
-            font-family: var(--font-stack);
-            transition: all var(--transition);
-            background: #fafafa;
-            color: var(--text-primary);
-            letter-spacing: 0.02em;
-        }
-        .api-key-input-wrapper input:focus {
-            outline: none;
-            border-color: var(--border-focus);
-            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.08);
-            background: #fff;
-        }
-        .api-key-input-wrapper input::placeholder {
-            color: #c4c4c8;
-            letter-spacing: normal;
-        }
-        .toggle-visibility {
-            position: absolute;
-            right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            cursor: pointer;
-            color: var(--text-tertiary);
-            font-size: 16px;
-            padding: 4px;
-            line-height: 1;
-            border-radius: 4px;
-            transition: color var(--transition);
-        }
-        .toggle-visibility:hover {
-            color: var(--text-primary);
-        }
-        .btn-sm {
-            padding: 10px 16px;
-            font-size: 13px;
-            font-weight: 500;
-            border-radius: var(--radius-sm);
-            border: 1.5px solid var(--border);
-            cursor: pointer;
-            transition: all var(--transition);
-            white-space: nowrap;
-            background: #fff;
-            color: var(--text-primary);
-            font-family: var(--font-stack);
-        }
-        .btn-sm:hover {
-            background: #f5f5f7;
-            border-color: #d4d4d8;
-        }
-        .btn-sm.save-btn {
-            background: var(--accent);
-            color: #fff;
-            border-color: var(--accent);
-            font-weight: 600;
-        }
-        .btn-sm.save-btn:hover {
-            background: var(--accent-hover);
-            border-color: var(--accent-hover);
-        }
-        .key-status {
-            font-size: 12px;
-            font-weight: 500;
-            padding: 4px 10px;
-            border-radius: 20px;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-        }
-        .key-status.set {
-            background: var(--success-bg);
-            color: var(--success-text);
-        }
-        .key-status.unset {
-            background: #fefce8;
-            color: #a16207;
-        }
+  .left-header .logo {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, var(--accent), #2563eb);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
 
-        .prompt-textarea {
-            width: 100%;
-            min-height: 90px;
-            padding: 14px 16px;
-            border: 1.5px solid var(--border);
-            border-radius: var(--radius-md);
-            font-size: 15px;
-            font-family: var(--font-stack);
-            resize: vertical;
-            transition: all var(--transition);
-            background: #fafafa;
-            color: var(--text-primary);
-            line-height: 1.6;
-        }
-        .prompt-textarea:focus {
-            outline: none;
-            border-color: var(--border-focus);
-            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.08);
-            background: #fff;
-        }
-        .prompt-textarea::placeholder {
-            color: #c4c4c8;
-        }
-        .char-count {
-            text-align: right;
-            font-size: 12px;
-            color: var(--text-tertiary);
-            margin-top: 4px;
-        }
+  .left-header .logo svg { width: 14px; height: 14px; color: #fff; }
+  .left-header h1 { font-size: 0.95rem; font-weight: 700; letter-spacing: -0.01em; }
 
-        .params-row {
-            display: flex;
-            gap: 14px;
-            flex-wrap: wrap;
-            margin-top: 14px;
-        }
-        .param-group {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-            min-width: 120px;
-            flex: 1;
-        }
-        .param-group label {
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-        }
-        .param-group select {
-            padding: 10px 12px;
-            border: 1.5px solid var(--border);
-            border-radius: var(--radius-sm);
-            font-size: 14px;
-            font-family: var(--font-stack);
-            background: #fafafa;
-            cursor: pointer;
-            transition: all var(--transition);
-            color: var(--text-primary);
-            appearance: none;
-            -webkit-appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2386868b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 12px center;
-            padding-right: 36px;
-        }
-        .param-group select:focus {
-            outline: none;
-            border-color: var(--border-focus);
-            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.08);
-            background: #fff;
-        }
+  label { font-size: 0.78rem; font-weight: 600; color: var(--text-dim); display: block; margin-bottom: 6px; }
+  textarea, select, .chip, .btn, .action { font-family: var(--font); }
 
-        .generate-btn {
-            width: 100%;
-            padding: 14px 24px;
-            font-size: 16px;
-            font-weight: 600;
-            font-family: var(--font-stack);
-            color: #fff;
-            background: var(--gradient-btn);
-            border: none;
-            border-radius: var(--radius-md);
-            cursor: pointer;
-            transition: all var(--transition);
-            letter-spacing: 0.01em;
-            position: relative;
-            overflow: hidden;
-            margin-top: 18px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-        }
-        .generate-btn:hover:not(:disabled) {
-            background: var(--gradient-btn-hover);
-            box-shadow: var(--shadow-lg);
-            transform: translateY(-1px);
-        }
-        .generate-btn:active:not(:disabled) {
-            transform: translateY(0);
-            box-shadow: var(--shadow-md);
-        }
-        .generate-btn:disabled {
-            opacity: 0.65;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-        .generate-btn .spinner {
-            width: 20px;
-            height: 20px;
-            border: 2.5px solid rgba(255,255,255,0.3);
-            border-top-color: #fff;
-            border-radius: 50%;
-            animation: spin 0.7s linear infinite;
-            display: none;
-        }
-        .generate-btn.loading .spinner {
-            display: block;
-        }
-        .generate-btn.loading .btn-text {
-            display: none;
-        }
-        .generate-btn.loading::after {
-            content: "正在生成...";
-            color: #fff;
-            font-weight: 500;
-            animation: dots 1.4s steps(4, end) infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes dots {
-            0% { content: "正在生成"; }
-            25% { content: "正在生成."; }
-            50% { content: "正在生成.."; }
-            75% { content: "正在生成..."; }
-        }
+  /* ─── Mode tabs ─── */
+  .mode-tabs {
+    display: flex;
+    gap: 2px;
+    background: var(--card);
+    border-radius: var(--radius-sm);
+    padding: 3px;
+    margin-bottom: 16px;
+  }
 
-        .status-message {
-            padding: 12px 16px;
-            border-radius: var(--radius-sm);
-            font-size: 14px;
-            font-weight: 500;
-            display: none;
-            animation: fadeIn 0.3s ease;
-        }
-        .status-message.visible { display: block; }
-        .status-message.error {
-            background: var(--error-bg);
-            color: var(--error-text);
-            border: 1px solid var(--error-border);
-        }
-        .status-message.info {
-            background: #eff6ff;
-            color: #2563eb;
-            border: 1px solid #bfdbfe;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-6px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+  .mode-tab {
+    flex: 1;
+    padding: 7px 0;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
 
-        .results-section { display: none; animation: fadeIn 0.4s ease; }
-        .results-section.visible { display: block; }
-        .results-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 16px;
-        }
-        .results-grid.single {
-            grid-template-columns: 1fr;
-            max-width: 500px;
-            margin: 0 auto;
-        }
-        .results-grid.double {
-            grid-template-columns: repeat(2, 1fr);
-        }
-        .result-item {
-            border-radius: var(--radius-lg);
-            overflow: hidden;
-            background: #fafafa;
-            border: 1px solid var(--border);
-            cursor: pointer;
-            transition: all var(--transition);
-            position: relative;
-            aspect-ratio: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .result-item:hover {
-            box-shadow: var(--shadow-lg);
-            transform: translateY(-3px);
-            border-color: #d4d4d8;
-        }
-        .result-item img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            display: block;
-            transition: opacity 0.4s ease;
-        }
-        .result-item img.loading-img { opacity: 0; }
-        .result-item img.loaded { opacity: 1; }
-        .result-item .img-placeholder {
-            position: absolute;
-            inset: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #d4d4d8;
-            font-size: 40px;
-            pointer-events: none;
-        }
-        .result-item .img-index {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: rgba(0,0,0,0.55);
-            color: #fff;
-            font-size: 11px;
-            font-weight: 600;
-            padding: 4px 10px;
-            border-radius: 20px;
-            letter-spacing: 0.03em;
-            pointer-events: none;
-            z-index: 2;
-        }
-        .result-item .hover-overlay {
-            position: absolute;
-            inset: 0;
-            background: rgba(0,0,0,0.35);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            transition: opacity var(--transition);
-            pointer-events: none;
-            z-index: 1;
-        }
-        .result-item:hover .hover-overlay { opacity: 1; }
-        .hover-overlay .zoom-icon {
-            color: #fff;
-            font-size: 36px;
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-        }
+  .mode-tab:hover { color: var(--text-dim); }
+  .mode-tab.active {
+    background: var(--accent-dim);
+    color: var(--accent);
+  }
 
-        .lightbox {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.85);
-            z-index: 1000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            animation: fadeIn 0.25s ease;
-            cursor: pointer;
-            padding: 20px;
-        }
-        .lightbox img {
-            max-width: 92vw;
-            max-height: 90vh;
-            border-radius: var(--radius-lg);
-            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-            cursor: default;
-            object-fit: contain;
-        }
-        .lightbox .close-btn {
-            position: absolute;
-            top: 20px;
-            right: 24px;
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
-            background: rgba(255,255,255,0.12);
-            border: none;
-            color: #fff;
-            font-size: 22px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all var(--transition);
-            z-index: 1001;
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-        }
-        .lightbox .close-btn:hover {
-            background: rgba(255,255,255,0.25);
-            transform: scale(1.05);
-        }
-        .lightbox .lightbox-actions {
-            position: absolute;
-            bottom: 28px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 12px;
-            z-index: 1001;
-        }
-        .lightbox .lightbox-actions button {
-            padding: 10px 20px;
-            border-radius: 24px;
-            border: 1.5px solid rgba(255,255,255,0.35);
-            background: rgba(255,255,255,0.1);
-            color: #fff;
-            font-size: 13px;
-            font-weight: 500;
-            cursor: pointer;
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            transition: all var(--transition);
-            font-family: var(--font-stack);
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .lightbox .lightbox-actions button:hover {
-            background: rgba(255,255,255,0.22);
-            border-color: rgba(255,255,255,0.55);
-        }
+  /* ─── Image source ─── */
+  .img-source-tabs {
+    display: flex;
+    gap: 2px;
+    background: var(--card);
+    border-radius: var(--radius-sm);
+    padding: 2px;
+    margin-bottom: 10px;
+  }
 
-        .footer {
-            text-align: center;
-            font-size: 12px;
-            color: var(--text-tertiary);
-            padding: 8px 0 20px;
-        }
-        .footer a {
-            color: var(--accent);
-            text-decoration: none;
-            font-weight: 500;
-        }
-        .footer a:hover { text-decoration: underline; }
+  .img-source-tab {
+    flex: 1;
+    padding: 5px 0;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
 
-        .toast {
-            position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%) translateY(80px);
-            background: #1d1d1f;
-            color: #fff;
-            padding: 12px 24px;
-            border-radius: 24px;
-            font-size: 14px;
-            font-weight: 500;
-            z-index: 2000;
-            pointer-events: none;
-            transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 8px 30px rgba(0,0,0,0.3);
-            font-family: var(--font-stack);
-        }
-        .toast.show {
-            transform: translateX(-50%) translateY(0);
-        }
+  .img-source-tab:hover { color: var(--text-dim); }
+  .img-source-tab.active { background: var(--accent-dim); color: var(--accent); }
 
-        @media (max-width: 640px) {
-            body { padding: 10px; }
-            .app-container { gap: 14px; }
-            .card { padding: 18px 16px; border-radius: var(--radius-lg); }
-            .header h1 { font-size: 24px; }
-            .header .logo-icon { font-size: 32px; }
-            .params-row { flex-direction: column; gap: 10px; }
-            .param-group { min-width: auto; }
-            .results-grid { grid-template-columns: 1fr !important; gap: 10px; }
-            .results-grid.double { grid-template-columns: 1fr 1fr !important; gap: 8px; }
-            .generate-btn { font-size: 15px; padding: 12px 20px; }
-            .api-key-row { flex-direction: column; align-items: stretch; }
-            .api-key-input-wrapper { min-width: auto; }
-            .lightbox .close-btn { top: 12px; right: 12px; width: 36px; height: 36px; font-size: 18px; }
-            .lightbox .lightbox-actions { bottom: 16px; gap: 8px; }
-            .lightbox .lightbox-actions button { padding: 8px 14px; font-size: 12px; border-radius: 20px; }
-            .result-item .img-index { top: 6px; left: 6px; font-size: 10px; padding: 3px 8px; }
-        }
-        @media (max-width: 380px) {
-            .results-grid.double { grid-template-columns: 1fr !important; }
-            .card { padding: 14px 12px; }
-            .prompt-textarea { min-height: 70px; font-size: 14px; }
-        }
-    </style>
+  .img-source-pane { display: none; }
+  .img-source-pane.active { display: block; }
+
+  .img-preview-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16/9;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--card);
+    border: 1px solid var(--border);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .img-preview-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .img-preview-wrap .img-preview-placeholder {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-align: center;
+  }
+
+  .img-preview-wrap .img-clear {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(0,0,0,0.6);
+    color: rgba(255,255,255,0.7);
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .img-preview-wrap.has-img .img-clear { display: flex; }
+  .img-preview-wrap.has-img .img-preview-placeholder { display: none; }
+
+  .img-url-input {
+    width: 100%;
+    padding: 9px 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 0.82rem;
+    font-family: var(--font);
+    outline: none;
+    transition: border 0.2s;
+  }
+
+  .img-url-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+  .img-url-input::placeholder { color: var(--text-muted); }
+
+  .file-upload-area {
+    width: 100%;
+    padding: 18px 0;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-sm);
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 10px;
+  }
+
+  .file-upload-area:hover { border-color: var(--accent); background: var(--accent-dim); }
+  .file-upload-area svg { width: 28px; height: 28px; opacity: 0.3; margin-bottom: 4px; }
+  .file-upload-area p { font-size: 0.78rem; color: var(--text-muted); }
+  .file-upload-area input { display: none; }
+
+  /* ─── 快捷预设 ─── */
+  .preset-section { margin-bottom: 14px; }
+  .preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+
+  .preset-btn {
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--card);
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+  }
+
+  .preset-btn:hover { border-color: var(--accent); background: var(--accent-dim); }
+  .preset-btn .p-title { font-size: 0.8rem; font-weight: 600; color: var(--text); }
+  .preset-btn .p-style { font-size: 0.66rem; color: var(--accent); font-weight: 500; }
+
+  /* ─── 输入框 ─── */
+  .field { margin-bottom: 12px; }
+  .field .label-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .field .label-row label { margin-bottom: 0; }
+  .field .label-row .count { font-size: 0.7rem; color: var(--text-muted); }
+
+  textarea {
+    width: 100%;
+    min-height: 76px;
+    padding: 10px 14px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 0.85rem;
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+    transition: border 0.2s, box-shadow 0.2s;
+  }
+
+  textarea::placeholder { color: var(--text-muted); }
+  textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+
+  .style-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+
+  .style-chip {
+    padding: 3px 9px;
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 0.7rem;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .style-chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+  .style-chip.active { border-color: var(--text-muted); color: var(--text-muted); background: var(--card); }
+
+  .i2i-chip { padding: 3px 9px; border: 1px solid var(--border); border-radius: 100px; background: transparent; color: var(--text-dim); font-size: 0.7rem; font-family: var(--font); cursor: pointer; transition: all 0.2s; }
+  .i2i-chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+  .i2i-chip.active { border-color: var(--text-muted); color: var(--text-muted); background: var(--card); }
+
+  /* ─── 控件行 ─── */
+  .row { display: flex; gap: 10px; margin-bottom: 12px; align-items: flex-end; }
+  .ctrl { flex: 1; }
+  .ctrl label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.3px; color: var(--text-muted); margin-bottom: 4px; }
+
+  select {
+    width: 100%;
+    padding: 8px 12px;
+    padding-right: 30px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 0.82rem;
+    cursor: pointer;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%23808080' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+  }
+
+  select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+  select option { background: var(--elevated); color: var(--text); }
+
+  /* ─── 生成按钮 ─── */
+  .generate-btn {
+    width: 100%;
+    padding: 10px 0;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, var(--accent), #2563eb);
+    color: #fff;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .generate-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent 25%, rgba(255,255,255,0.1) 50%, transparent 75%);
+    transition: transform 0.5s;
+    transform: translateX(-100%);
+  }
+
+  .generate-btn:hover::after { transform: translateX(100%); }
+  .generate-btn:hover { box-shadow: 0 0 24px var(--accent-glow); transform: translateY(-1px); }
+  .generate-btn:active { transform: translateY(0); }
+  .generate-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .generate-btn .spinner { display: none; width: 15px; height: 15px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  .generate-btn.loading .spinner { display: inline-block; }
+  .generate-btn.loading .btn-text { display: none; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .left-footer { margin-top: auto; padding-top: 14px; text-align: center; font-size: 0.7rem; color: var(--text-muted); }
+
+  /* ───── Right Panel ───── */
+  .right {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 20px 28px 20px;
+    overflow-y: auto;
+    position: relative;
+  }
+
+  .preview-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+    margin-bottom: 16px;
+    user-select: none;
+  }
+
+  .right-placeholder {
+    text-align: center;
+    color: var(--text-muted);
+    margin-top: 15vh;
+  }
+
+  .right-placeholder svg { width: 56px; height: 56px; opacity: 0.15; margin-bottom: 12px; }
+  .right-placeholder p { font-size: 0.9rem; }
+
+  .grid { display: grid; gap: 14px; width: 100%; max-width: 900px; }
+  .grid.n1 { grid-template-columns: 1fr; max-width: 600px; }
+  .grid.n2 { grid-template-columns: 1fr 1fr; }
+  .grid.n3 { grid-template-columns: 1fr 1fr; }
+  .grid.n4 { grid-template-columns: 1fr 1fr; }
+
+  .img-card {
+    position: relative;
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--card);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .img-card img { width: 100%; height: auto; display: block; }
+
+  .img-card .card-actions {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .img-card:hover .card-actions { opacity: 1; }
+
+  .img-card .card-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    border: none;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(4px);
+    color: rgba(255,255,255,0.85);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+  }
+
+  .img-card .card-btn:hover { background: rgba(0,0,0,0.75); color: #fff; }
+  .img-card .card-btn svg { width: 15px; height: 15px; }
+
+  /* ───── Modal ───── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 1000;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 60px 24px;
+    backdrop-filter: blur(6px);
+    overflow: auto;
+    cursor: zoom-out;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal-close {
+    position: fixed;
+    top: 20px;
+    right: 24px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.7);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1001;
+    transition: background 0.2s;
+  }
+
+  .modal-close:hover { background: rgba(255,255,255,0.15); color: #fff; }
+  .modal-close svg { width: 22px; height: 22px; }
+
+  .modal-img {
+    max-width: none;
+    max-height: none;
+    width: auto;
+    height: auto;
+    border-radius: 6px;
+    box-shadow: 0 8px 60px rgba(0,0,0,0.6);
+  }
+
+  /* ───── Toast ───── */
+  .toast {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    padding: 10px 22px;
+    border-radius: var(--radius);
+    background: var(--elevated);
+    border: 1px solid var(--rose);
+    color: var(--text);
+    font-size: 0.82rem;
+    opacity: 0;
+    transition: all 0.35s ease;
+    pointer-events: none;
+    z-index: 999;
+    max-width: 90vw;
+    text-align: center;
+  }
+
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+  .toast.ok { border-color: var(--green); }
+
+  /* ───── Responsive ───── */
+  @media (max-width: 860px) {
+    body { overflow: auto; }
+    .app { flex-direction: column; height: auto; }
+    .left { width: 100%; min-width: 0; border-right: none; border-bottom: 1px solid var(--border); overflow-y: visible; }
+    .right { min-height: 60vh; padding: 20px; }
+  }
+
+  @media (max-width: 500px) {
+    .preset-grid { grid-template-columns: 1fr; }
+    .grid.n2, .grid.n3, .grid.n4 { grid-template-columns: 1fr; }
+    .right { padding: 14px; }
+    .left { padding: 16px 12px; }
+  }
+
+  .hidden { display: none !important; }
+</style>
 </head>
 <body>
 
-<div class="app-container">
-    <header class="header">
-        <span class="logo-icon">✨</span>
-        <h1>Agnes 文生图</h1>
-        <p class="subtitle">基于 Agnes Image 2.0 Flash · AI 驱动图像生成</p>
-    </header>
-
-    <div class="card" id="apiKeyCard">
-        <div class="card-header">
-            <span class="section-title"><span class="dot"></span> API 密钥配置</span>
-            <span class="key-status unset" id="keyStatus">⚠️ 未设置</span>
-        </div>
-        <div class="api-key-row">
-            <div class="api-key-input-wrapper">
-                <input type="password" id="apiKeyInput" placeholder="请输入您的 Agnes API 密钥 (sk-...)" autocomplete="off" spellcheck="false">
-                <button class="toggle-visibility" id="toggleKeyVisibility" title="显示/隐藏密钥" type="button">👁️</button>
-            </div>
-            <button class="btn-sm save-btn" id="saveKeyBtn" type="button">💾 保存密钥</button>
-            <button class="btn-sm" id="clearKeyBtn" type="button">🗑️ 清除</button>
-        </div>
+<div class="app">
+  <!-- === 左侧 === -->
+  <div class="left" id="leftPanel">
+    <div class="left-header">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"/><path d="M18 12H6"/><path d="M12 6v12"/></svg>
+      </div>
+      <h1>图像生成</h1>
     </div>
 
-    <div class="card" id="inputCard">
-        <div class="card-header">
-            <span class="section-title">📝 提示词</span>
-            <span class="char-count" id="charCount">0 / 4000</span>
-        </div>
-        <textarea class="prompt-textarea" id="promptInput" placeholder="描述你想生成的图像，越详细效果越好...&#10;&#10;例如：一只毛茸茸的橘猫坐在窗台上，温暖的阳光透过百叶窗洒在它身上，柔和的阴影，高清摄影风格，背景是温馨的室内环境" maxlength="4000"></textarea>
-
-        <div class="params-row">
-            <div class="param-group">
-                <label for="sizeSelect">📐 图片尺寸</label>
-                <select id="sizeSelect">
-                    <option value="1024x1024" selected>1024 × 1024 (正方形)</option>
-                    <option value="768x1024">768 × 1024 (竖版)</option>
-                    <option value="1024x768">1024 × 768 (横版)</option>
-                </select>
-            </div>
-            <div class="param-group">
-                <label for="countSelect">🔢 生成数量</label>
-                <select id="countSelect">
-                    <option value="1" selected>1 张</option>
-                    <option value="2">2 张</option>
-                    <option value="3">3 张</option>
-                    <option value="4">4 张</option>
-                </select>
-            </div>
-        </div>
-
-        <button class="generate-btn" id="generateBtn" type="button">
-            <span class="spinner"></span>
-            <span class="btn-text">🚀 生成图片</span>
-        </button>
-
-        <div class="status-message" id="statusMsg"></div>
+    <!-- 模式切换 -->
+    <div class="mode-tabs" id="modeTabs">
+      <button class="mode-tab active" data-mode="t2i">文生图</button>
+      <button class="mode-tab" data-mode="i2i">图生图</button>
     </div>
 
-    <div class="results-section" id="resultsSection">
-        <div class="card">
-            <div class="card-header">
-                <span class="section-title">🖼️ 生成结果</span>
-                <span style="font-size:12px;color:var(--text-tertiary);" id="resultInfo"></span>
-            </div>
-            <div class="results-grid" id="resultsGrid"></div>
+    <!-- ====== 文生图 ====== -->
+    <div id="t2iPanel">
+
+      <div class="preset-section">
+        <label>快捷预设</label>
+        <div class="preset-grid">
+          <button class="preset-btn" data-prompt="壮丽的山脉日出景观，云雾缭绕的山谷，金色阳光穿透云层" style="border-left:3px solid #4a9eff;">
+            <span class="p-title">山河日出</span>
+            <span class="p-style">写实 · 风景 · 电影感</span>
+          </button>
+          <button class="preset-btn" data-prompt="一只可爱的橘猫坐在木桌上，阳光从窗户洒进来，柔和的自然光" style="border-left:3px solid #60a5fa;">
+            <span class="p-title">可爱橘猫</span>
+            <span class="p-style">可爱 · 动物 · 温暖</span>
+          </button>
+          <button class="preset-btn" data-prompt="赛博朋克城市夜景，霓虹灯光闪烁，雨夜街道，反光水面，未来感" style="border-left:3px solid #22d3ee;">
+            <span class="p-title">赛博朋克</span>
+            <span class="p-style">科幻 · 霓虹 · 电影级</span>
+          </button>
+          <button class="preset-btn" data-prompt="高端无线耳机产品展示，纯白背景，专业棚拍布光，细节清晰" style="border-left:3px solid #3b82f6;">
+            <span class="p-title">产品摄影</span>
+            <span class="p-style">商业 · 产品 · 高清</span>
+          </button>
         </div>
+      </div>
+
+      <div class="field">
+        <div class="label-row">
+          <label for="prompt">提示词</label>
+          <span class="count"><span id="charCount">0</span> / 1000</span>
+        </div>
+        <textarea id="prompt" placeholder="描述你想要生成的图像" maxlength="1000" rows="3"></textarea>
+      </div>
+
+      <div class="field">
+        <div class="label-row"><label for="styleWords">风格词（可选）</label></div>
+        <textarea id="styleWords" placeholder="写实风格, 电影级光影, 超高细节" maxlength="300" rows="1" style="min-height:38px;"></textarea>
+        <div class="style-chips">
+          <button class="style-chip" data-style="写实摄影风格, 电影级光影, 超高细节, 8K分辨率">写实摄影</button>
+          <button class="style-chip" data-style="赛博朋克风格, 霓虹灯光, 暗调氛围, 科幻感">赛博朋克</button>
+          <button class="style-chip" data-style="水彩手绘风格, 柔和色彩, 艺术感, 氛围感">水彩手绘</button>
+          <button class="style-chip" data-style="皮克斯动画风格, 明亮色彩, 3D渲染, 可爱风格">皮克斯动画</button>
+          <button class="style-chip" data-style="中国水墨画风格, 留白意境, 黑白灰调, 毛笔笔触">水墨国风</button>
+          <button class="style-chip" data-style="商业产品摄影, 纯白背景, 棚拍布光, 极致细节">商业产品</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="ctrl">
+          <label>尺寸</label>
+          <select id="sizeT2i">
+            <option value="1024x1024">方形 1024×1024</option>
+            <option value="1024x768" selected>横版 1024×768</option>
+            <option value="768x1024">竖版 768×1024</option>
+          </select>
+        </div>
+        <div class="ctrl">
+          <label>数量</label>
+          <select id="nT2i">
+            <option value="1">1 张</option>
+            <option value="2">2 张</option>
+            <option value="3">3 张</option>
+            <option value="4">4 张</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="generate-btn" id="generateT2i">
+        <span class="spinner"></span>
+        <span class="btn-text"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px;"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg> 生成</span>
+      </button>
     </div>
 
-    <footer class="footer">
-        基于 <a href="https://agnes-ai.com/zh-Hans/docs/agnes-image-20-flash" target="_blank" rel="noopener noreferrer">Agnes Image 2.0 Flash API</a> · 图片由 AI 生成
-    </footer>
+    <!-- ====== 图生图 ====== -->
+    <div id="i2iPanel" class="hidden">
+
+      <div class="img-source-tabs" id="imgSourceTabs">
+        <button class="img-source-tab active" data-src="upload">本地上传</button>
+        <button class="img-source-tab" data-src="url">网络地址</button>
+      </div>
+
+      <div class="img-source-pane active" id="srcUpload">
+        <div class="file-upload-area" id="fileUploadArea">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <p>点击上传参考图片</p>
+          <input type="file" accept="image/*" id="fileInput">
+        </div>
+        <div class="img-preview-wrap" id="uploadPreviewWrap">
+          <div class="img-preview-placeholder">未选择图片</div>
+          <img id="uploadPreview" alt="">
+          <button class="img-clear" id="uploadClearBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="img-source-pane" id="srcUrl">
+        <div class="img-preview-wrap" id="urlPreviewWrap">
+          <div class="img-preview-placeholder">输入图片地址后自动加载</div>
+          <img id="urlPreview" alt="">
+          <button class="img-clear" id="urlClearBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <input class="img-url-input" id="imgUrl" placeholder="输入图片 URL，如 https://example.com/image.png">
+      </div>
+
+      <div class="field" style="margin-top:8px;">
+        <div class="label-row"><label for="i2iPrompt">编辑指令</label></div>
+        <textarea id="i2iPrompt" placeholder="描述如何编辑或变换这张图片，如：将此图片转换为赛博朋克风格，保留主体不变" maxlength="1000" rows="2" style="min-height:50px;"></textarea>
+      </div>
+
+      <div class="field">
+        <div class="label-row"><label for="styleWordsI2i">风格词（可选）</label></div>
+        <textarea id="styleWordsI2i" placeholder="写实风格, 电影级光影" maxlength="300" rows="1" style="min-height:38px;"></textarea>
+        <div class="style-chips">
+          <button class="i2i-chip" data-style="写实摄影风格, 电影级光影, 超高细节, 8K分辨率">写实摄影</button>
+          <button class="i2i-chip" data-style="赛博朋克风格, 霓虹灯光, 暗调氛围, 科幻感">赛博朋克</button>
+          <button class="i2i-chip" data-style="水彩手绘风格, 柔和色彩, 艺术感, 氛围感">水彩手绘</button>
+          <button class="i2i-chip" data-style="皮克斯动画风格, 明亮色彩, 3D渲染, 可爱风格">皮克斯动画</button>
+          <button class="i2i-chip" data-style="中国水墨画风格, 留白意境, 黑白灰调, 毛笔笔触">水墨国风</button>
+          <button class="i2i-chip" data-style="商业产品摄影, 纯白背景, 棚拍布光, 极致细节">商业产品</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="ctrl">
+          <label>尺寸</label>
+          <select id="sizeI2i">
+            <option value="1024x1024">方形 1024×1024</option>
+            <option value="1024x768" selected>横版 1024×768</option>
+            <option value="768x1024">竖版 768×1024</option>
+          </select>
+        </div>
+        <div class="ctrl">
+          <label>数量</label>
+          <select id="nI2i">
+            <option value="1">1 张</option>
+            <option value="2">2 张</option>
+            <option value="3">3 张</option>
+            <option value="4">4 张</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="generate-btn" id="generateI2i">
+        <span class="spinner"></span>
+        <span class="btn-text"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px;"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg> 生成</span>
+      </button>
+    </div>
+
+    <div class="left-footer">
+      @Stone||Powered by Sapiens AI ·
+    </div>
+  </div>
+
+  <!-- === 右侧 === -->
+  <div class="right" id="rightPanel">
+    <div class="preview-label">预览</div>
+    <div class="right-placeholder" id="placeholder">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <p>输入提示词，点击生成</p>
+    </div>
+    <div class="grid" id="grid"></div>
+  </div>
+</div>
+
+<!-- 模态框 -->
+<div class="modal-overlay" id="modal">
+  <button class="modal-close" id="modalClose">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>
+  <img class="modal-img" id="modalImg" alt="放大预览">
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
-    (function() {
-        const apiKeyInput = document.getElementById('apiKeyInput');
-        const toggleKeyVisibilityBtn = document.getElementById('toggleKeyVisibility');
-        const saveKeyBtn = document.getElementById('saveKeyBtn');
-        const clearKeyBtn = document.getElementById('clearKeyBtn');
-        const keyStatus = document.getElementById('keyStatus');
-        const promptInput = document.getElementById('promptInput');
-        const charCount = document.getElementById('charCount');
-        const sizeSelect = document.getElementById('sizeSelect');
-        const countSelect = document.getElementById('countSelect');
-        const generateBtn = document.getElementById('generateBtn');
-        const statusMsg = document.getElementById('statusMsg');
-        const resultsSection = document.getElementById('resultsSection');
-        const resultsGrid = document.getElementById('resultsGrid');
-        const resultInfo = document.getElementById('resultInfo');
-        const toast = document.getElementById('toast');
+  const API_URL = 'https://lmage.chatlz.dpdns.org';
 
-        let apiKey = '';
-        let isGenerating = false;
-        let lightboxEl = null;
+  // ── DOM refs ──
+  const modeTabs = document.getElementById('modeTabs');
+  const t2iPanel = document.getElementById('t2iPanel');
+  const i2iPanel = document.getElementById('i2iPanel');
+  const grid = document.getElementById('grid');
+  const placeholder = document.getElementById('placeholder');
+  const toast = document.getElementById('toast');
+  const modal = document.getElementById('modal');
+  const modalImg = document.getElementById('modalImg');
+  const modalClose = document.getElementById('modalClose');
 
-        function loadApiKey() {
-            const stored = localStorage.getItem('agnes_api_key');
-            if (stored) {
-                apiKey = stored;
-                apiKeyInput.value = stored;
-                updateKeyStatus(true);
-            } else {
-                apiKey = '';
-                apiKeyInput.value = '';
-                updateKeyStatus(false);
-            }
+  // T2I refs
+  const promptEl = document.getElementById('prompt');
+  const charCount = document.getElementById('charCount');
+  const styleWordsEl = document.getElementById('styleWords');
+  const sizeT2i = document.getElementById('sizeT2i');
+  const nT2i = document.getElementById('nT2i');
+  const btnT2i = document.getElementById('generateT2i');
+
+  // I2I refs
+  const imgSourceTabs = document.getElementById('imgSourceTabs');
+  const srcUpload = document.getElementById('srcUpload');
+  const srcUrl = document.getElementById('srcUrl');
+  const fileInput = document.getElementById('fileInput');
+  const fileUploadArea = document.getElementById('fileUploadArea');
+  const uploadPreviewWrap = document.getElementById('uploadPreviewWrap');
+  const uploadPreview = document.getElementById('uploadPreview');
+  const uploadClearBtn = document.getElementById('uploadClearBtn');
+  const urlPreviewWrap = document.getElementById('urlPreviewWrap');
+  const urlPreview = document.getElementById('urlPreview');
+  const urlClearBtn = document.getElementById('urlClearBtn');
+  const imgUrl = document.getElementById('imgUrl');
+  const i2iPrompt = document.getElementById('i2iPrompt');
+  const styleWordsI2i = document.getElementById('styleWordsI2i');
+  const sizeI2i = document.getElementById('sizeI2i');
+  const nI2i = document.getElementById('nI2i');
+  const btnI2i = document.getElementById('generateI2i');
+
+  let timer;
+  // 供图生图跳转使用的存储
+  let pendingImageUrl = '';
+
+  // ── Mode switch ──
+  let currentMode = 't2i';
+
+  modeTabs.addEventListener('click', e => {
+    const tab = e.target.closest('.mode-tab');
+    if (!tab) return;
+    const mode = tab.getAttribute('data-mode');
+    if (mode === currentMode) return;
+    currentMode = mode;
+    modeTabs.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    t2iPanel.classList.toggle('hidden', mode !== 't2i');
+    i2iPanel.classList.toggle('hidden', mode !== 'i2i');
+    // 如果有待传入的图片且切换到 i2i
+    if (mode === 'i2i' && pendingImageUrl) {
+      setI2iImage(pendingImageUrl);
+      pendingImageUrl = '';
+    }
+  });
+
+  // ── 切换到图生图模式并传入图片 ──
+  function switchToI2i(imageUrl) {
+    pendingImageUrl = imageUrl;
+    // 点击 图生图 tab
+    const tab = modeTabs.querySelector('[data-mode="i2i"]');
+    if (tab) tab.click();
+    else pendingImageUrl = ''; // fallback
+  }
+
+  function setI2iImage(url) {
+    // 切换到 URL 模式
+    const urlTab = imgSourceTabs.querySelector('[data-src="url"]');
+    if (urlTab) urlTab.click();
+    imgUrl.value = url;
+    // 加载预览
+    urlPreview.src = url;
+    urlPreview.onload = () => {
+      urlPreviewWrap.classList.add('has-img');
+    };
+    urlPreview.onerror = () => {
+      showToast('图片加载失败，请检查地址', 'error');
+    };
+  }
+
+  // ── 图生图图片来源切换 ──
+  imgSourceTabs.addEventListener('click', e => {
+    const tab = e.target.closest('.img-source-tab');
+    if (!tab) return;
+    imgSourceTabs.querySelectorAll('.img-source-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const src = tab.getAttribute('data-src');
+    srcUpload.classList.toggle('active', src === 'upload');
+    srcUrl.classList.toggle('active', src === 'url');
+  });
+
+  // ── 本地上传 ──
+  fileUploadArea.addEventListener('click', () => fileInput.click());
+
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      uploadPreview.src = e.target.result;
+      uploadPreviewWrap.classList.add('has-img');
+    };
+    reader.readAsDataURL(file);
+  });
+
+  uploadClearBtn.addEventListener('click', () => {
+    uploadPreview.src = '';
+    uploadPreviewWrap.classList.remove('has-img');
+    fileInput.value = '';
+  });
+
+  // ── 网络地址 ──
+  let urlLoadTimer;
+  imgUrl.addEventListener('input', () => {
+    clearTimeout(urlLoadTimer);
+    const url = imgUrl.value.trim();
+    if (!url) {
+      urlPreviewWrap.classList.remove('has-img');
+      return;
+    }
+    urlLoadTimer = setTimeout(() => {
+      urlPreview.src = url;
+      urlPreview.onload = () => urlPreviewWrap.classList.add('has-img');
+      urlPreview.onerror = () => {
+        urlPreviewWrap.classList.remove('has-img');
+        showToast('图片加载失败，请检查地址', 'error');
+      };
+    }, 500);
+  });
+
+  urlClearBtn.addEventListener('click', () => {
+    imgUrl.value = '';
+    urlPreview.src = '';
+    urlPreviewWrap.classList.remove('has-img');
+  });
+
+  // ── 通用 ──
+  function getActiveImage() {
+    const activeTab = imgSourceTabs.querySelector('.img-source-tab.active');
+    if (!activeTab) return '';
+    const src = activeTab.getAttribute('data-src');
+    if (src === 'upload') {
+      return uploadPreview.src && uploadPreviewWrap.classList.contains('has-img') ? uploadPreview.src : '';
+    } else {
+      const url = imgUrl.value.trim();
+      if (url && urlPreviewWrap.classList.contains('has-img')) return url;
+      return '';
+    }
+  }
+
+  // ── 字数统计 ──
+  promptEl.addEventListener('input', () => { charCount.textContent = promptEl.value.length; });
+
+  // ── 快捷预设 ──
+  document.querySelectorAll('.preset-btn').forEach(el => {
+    el.addEventListener('click', () => {
+      promptEl.value = el.getAttribute('data-prompt');
+      charCount.textContent = promptEl.value.length;
+      promptEl.focus();
+    });
+  });
+
+  // ── 风格词切换 ──
+  function setupStyleChips(selector, textareaEl) {
+    const btns = document.querySelectorAll(selector);
+    btns.forEach(el => {
+      el.addEventListener('click', () => {
+        el.classList.toggle('active');
+        textareaEl.value = Array.from(
+          document.querySelectorAll(selector + '.active')
+        ).map(c => c.getAttribute('data-style')).join('，');
+        textareaEl.focus();
+      });
+    });
+  }
+
+  setupStyleChips('.style-chip', styleWordsEl);
+  setupStyleChips('.i2i-chip', styleWordsI2i);
+
+  // ── 生成: 文生图 ──
+  btnT2i.addEventListener('click', () => generate('t2i'));
+
+  // ── 生成: 图生图 ──
+  btnI2i.addEventListener('click', () => generate('i2i'));
+
+  async function generate(mode) {
+    let prompt, size, n, image;
+
+    if (mode === 't2i') {
+      let p = promptEl.value.trim();
+      const style = styleWordsEl.value.trim();
+      if (!p) { showToast('请输入提示词', 'error'); promptEl.focus(); return; }
+      if (style) p = p + '，' + style;
+      prompt = p;
+      size = sizeT2i.value;
+      n = parseInt(nT2i.value);
+    } else {
+      const img = getActiveImage();
+      if (!img) { showToast('请先上传或输入参考图片', 'error'); return; }
+      let p = i2iPrompt.value.trim();
+      const style = styleWordsI2i.value.trim();
+      if (!p) { showToast('请输入编辑指令', 'error'); i2iPrompt.focus(); return; }
+      if (style) p = p + '，' + style;
+      prompt = p;
+      size = sizeI2i.value;
+      n = parseInt(nI2i.value);
+      image = [img];
+    }
+
+    const btn = mode === 't2i' ? btnT2i : btnI2i;
+    btn.disabled = true;
+    btn.classList.add('loading');
+    placeholder.style.display = 'none';
+
+    grid.innerHTML = '';
+    grid.className = 'grid n' + n;
+    for (let i = 0; i < n; i++) {
+      const card = document.createElement('div');
+      card.className = 'img-card';
+      card.style.background = 'var(--card)';
+      card.style.minHeight = '160px';
+      card.innerHTML = '<div style="width:60%;aspect-ratio:4/3;border-radius:6px;background:linear-gradient(135deg,var(--elevated) 25%,var(--card) 50%,var(--elevated) 75%);background-size:200% 100%;animation:shine 1.4s ease-in-out infinite;"></div>';
+      grid.appendChild(card);
+    }
+
+    if (!document.getElementById('shimmerStyle')) {
+      const s = document.createElement('style');
+      s.id = 'shimmerStyle';
+      s.textContent = '@keyframes shine{0%{background-position:200% 0}100%{background-position:-200% 0}}';
+      document.head.appendChild(s);
+    }
+
+    try {
+      const body = { prompt, size, n };
+      if (image) body.image = image;
+
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || data.message || '请求失败');
+
+      const items = data.data || [];
+      if (items.length === 0) throw new Error('未获取到图像数据');
+
+      grid.innerHTML = '';
+      const actualN = Math.min(items.length, n);
+      grid.className = 'grid n' + actualN;
+
+      items.slice(0, n).forEach((item, idx) => {
+        let url = item.url;
+        if (!url && item.b64_json) url = 'data:image/png;base64,' + item.b64_json;
+        if (!url) return;
+
+        const card = document.createElement('div');
+        card.className = 'img-card';
+
+        const imgEl = document.createElement('img');
+        imgEl.src = url;
+        imgEl.alt = '生成图像 ' + (idx + 1);
+        imgEl.loading = 'lazy';
+
+        const actions = document.createElement('div');
+        actions.className = 'card-actions';
+
+        // 放大镜
+        const zoomBtn = document.createElement('button');
+        zoomBtn.className = 'card-btn';
+        zoomBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>';
+        zoomBtn.title = '查看原图';
+        zoomBtn.addEventListener('click', e => { e.stopPropagation(); openModal(url); });
+        actions.appendChild(zoomBtn);
+
+        // 图生图按钮（仅文生图模式下显示）
+        if (mode === 't2i') {
+          const img2imgBtn = document.createElement('button');
+          img2imgBtn.className = 'card-btn';
+          img2imgBtn.style.backgroundColor = 'rgba(74,158,255,0.6)';
+          img2imgBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+          img2imgBtn.title = '图生图';
+          img2imgBtn.addEventListener('click', e => {
+            e.stopPropagation();
+            switchToI2i(url);
+          });
+          actions.appendChild(img2imgBtn);
         }
 
-        function updateKeyStatus(isSet) {
-            if (isSet) {
-                keyStatus.textContent = '✅ 已设置';
-                keyStatus.className = 'key-status set';
-            } else {
-                keyStatus.textContent = '⚠️ 未设置';
-                keyStatus.className = 'key-status unset';
-            }
-        }
+        card.appendChild(imgEl);
+        card.appendChild(actions);
+        grid.appendChild(card);
+      });
 
-        let toastTimer;
-        function showToast(message, duration = 2500) {
-            clearTimeout(toastTimer);
-            toast.textContent = message;
-            toast.classList.add('show');
-            toastTimer = setTimeout(() => toast.classList.remove('show'), duration);
-        }
+      showToast('生成完成！', 'success');
+    } catch (e) {
+      placeholder.style.display = '';
+      grid.innerHTML = '';
+      showToast(e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove('loading');
+    }
+  }
 
-        function showStatus(message, type = 'info') {
-            statusMsg.textContent = message;
-            statusMsg.className = 'status-message visible ' + type;
-        }
-        function hideStatus() {
-            statusMsg.className = 'status-message';
-        }
+  // ── 放大预览 ──
+  function openModal(url) {
+    modalImg.src = url;
+    modal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
 
-        toggleKeyVisibilityBtn.addEventListener('click', () => {
-            const isPassword = apiKeyInput.type === 'password';
-            apiKeyInput.type = isPassword ? 'text' : 'password';
-            toggleKeyVisibilityBtn.textContent = isPassword ? '🙈' : '👁️';
-        });
+  function closeModal() {
+    modal.classList.remove('open');
+    document.body.style.overflow = '';
+  }
 
-        saveKeyBtn.addEventListener('click', () => {
-            const key = apiKeyInput.value.trim();
-            if (!key) {
-                showToast('⚠️ 请输入有效的 API 密钥');
-                return;
-            }
-            apiKey = key;
-            localStorage.setItem('agnes_api_key', key);
-            updateKeyStatus(true);
-            hideStatus();
-            showToast('✅ API 密钥已保存');
-        });
+  modalClose.addEventListener('click', closeModal);
+  modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.classList.contains('open')) closeModal(); });
 
-        clearKeyBtn.addEventListener('click', () => {
-            apiKey = '';
-            apiKeyInput.value = '';
-            localStorage.removeItem('agnes_api_key');
-            updateKeyStatus(false);
-            hideStatus();
-            showToast('🗑️ API 密钥已清除');
-        });
-
-        promptInput.addEventListener('input', () => {
-            const len = promptInput.value.length;
-            charCount.textContent = `${len} / 4000`;
-            if (len > 3800) charCount.style.color = '#f59e0b';
-            else if (len > 3950) charCount.style.color = '#dc2626';
-            else charCount.style.color = '';
-        });
-
-        function openLightbox(imageUrl) {
-            if (lightboxEl) { lightboxEl.remove(); lightboxEl = null; }
-            lightboxEl = document.createElement('div');
-            lightboxEl.className = 'lightbox';
-            lightboxEl.innerHTML = `
-                <button class="close-btn" title="关闭 (ESC)">✕</button>
-                <img src="${imageUrl}" alt="生成图片预览" />
-                <div class="lightbox-actions">
-                    <button id="lightboxOpenBtn" title="在新标签页打开">🔗 打开原图</button>
-                    <button id="lightboxDownloadBtn" title="下载图片">⬇️ 下载</button>
-                </div>
-            `;
-            document.body.appendChild(lightboxEl);
-
-            const closeLightbox = () => {
-                if (lightboxEl) { lightboxEl.remove(); lightboxEl = null; }
-                document.removeEventListener('keydown', escHandler);
-            };
-            const escHandler = (e) => { if (e.key === 'Escape') closeLightbox(); };
-            lightboxEl.addEventListener('click', (e) => { if (e.target === lightboxEl) closeLightbox(); });
-            lightboxEl.querySelector('.close-btn').addEventListener('click', closeLightbox);
-            document.addEventListener('keydown', escHandler);
-
-            lightboxEl.querySelector('#lightboxOpenBtn').addEventListener('click', (e) => {
-                e.stopPropagation();
-                window.open(imageUrl, '_blank', 'noopener,noreferrer');
-            });
-            lightboxEl.querySelector('#lightboxDownloadBtn').addEventListener('click', (e) => {
-                e.stopPropagation();
-                fetch(imageUrl, { mode: 'cors' })
-                    .then(res => res.blob())
-                    .then(blob => {
-                        const blobUrl = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = blobUrl;
-                        a.download = `agnes-generated-${Date.now()}.png`;
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(blobUrl);
-                        showToast('✅ 图片下载中...');
-                    })
-                    .catch(() => {
-                        showToast('⚠️ 无法直接下载，正在打开原图...');
-                        window.open(imageUrl, '_blank', 'noopener,noreferrer');
-                    });
-            });
-            lightboxEl.querySelector('img').addEventListener('click', (e) => e.stopPropagation());
-        }
-
-        function renderResults(imageUrls, promptUsed, sizeUsed) {
-            resultsGrid.innerHTML = '';
-            const count = imageUrls.length;
-            resultsGrid.classList.remove('single', 'double');
-            if (count === 1) resultsGrid.classList.add('single');
-            else if (count === 2) resultsGrid.classList.add('double');
-
-            imageUrls.forEach((url, index) => {
-                const item = document.createElement('div');
-                item.className = 'result-item';
-                item.innerHTML = `
-                    <span class="img-index">#${index + 1}</span>
-                    <div class="img-placeholder">🖼️</div>
-                    <div class="hover-overlay"><span class="zoom-icon">🔍</span></div>
-                    <img src="${url}" alt="生成图片 ${index + 1}" class="loading-img" loading="lazy" />
-                `;
-                const img = item.querySelector('img');
-                const placeholder = item.querySelector('.img-placeholder');
-                img.addEventListener('load', () => {
-                    img.classList.remove('loading-img');
-                    img.classList.add('loaded');
-                    if (placeholder) placeholder.style.display = 'none';
-                });
-                img.addEventListener('error', () => {
-                    if (placeholder) { placeholder.textContent = '⚠️'; placeholder.style.color = '#f87171'; }
-                    img.style.display = 'none';
-                });
-                if (img.complete && img.naturalWidth > 0) {
-                    img.classList.remove('loading-img');
-                    img.classList.add('loaded');
-                    if (placeholder) placeholder.style.display = 'none';
-                }
-                item.addEventListener('click', () => openLightbox(url));
-                resultsGrid.appendChild(item);
-            });
-
-            resultInfo.textContent = `提示词: "${promptUsed.slice(0, 40)}${promptUsed.length > 40 ? '...' : ''}" · 尺寸: ${sizeUsed}`;
-            resultsSection.classList.add('visible');
-            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-
-        async function generateImages() {
-            if (isGenerating) return;
-            if (!apiKey) {
-                showStatus('⚠️ 请先设置 API 密钥后再生成图片', 'error');
-                document.getElementById('apiKeyCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
-                apiKeyInput.focus();
-                return;
-            }
-            const prompt = promptInput.value.trim();
-            if (!prompt) {
-                showStatus('⚠️ 请输入图片描述（提示词）', 'error');
-                promptInput.focus();
-                return;
-            }
-            if (prompt.length < 3) {
-                showStatus('⚠️ 提示词太短，请提供更详细的描述（至少3个字符）', 'error');
-                promptInput.focus();
-                return;
-            }
-
-            const size = sizeSelect.value;
-            const n = parseInt(countSelect.value, 10);
-            isGenerating = true;
-            generateBtn.classList.add('loading');
-            generateBtn.disabled = true;
-            hideStatus();
-            resultsSection.classList.remove('visible');
-
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 120000);
-
-            try {
-                // ★★★ 修改点：使用您的 Cloudflare Worker 代理地址 ★★★
-                const response = await fetch('https://api.chatlz.dpdns.org/v1/images/generations', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${apiKey}`,
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        model: 'agnes-image-20-flash',
-                        prompt: prompt,
-                        size: size,
-                        n: n,
-                    }),
-                    signal: controller.signal,
-                });
-
-                clearTimeout(timeoutId);
-
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    let errorMsg = '';
-                    switch (response.status) {
-                        case 400: errorMsg = '请求参数错误，请检查提示词或参数设置'; break;
-                        case 401: errorMsg = 'API 密钥无效或已过期，请检查密钥设置'; break;
-                        case 402: errorMsg = '账户余额不足，请充值后重试'; break;
-                        case 429: errorMsg = '请求过于频繁，请稍后重试'; break;
-                        case 500: errorMsg = '服务器内部错误，请稍后重试'; break;
-                        case 503: errorMsg = '服务暂时不可用，请稍后重试'; break;
-                        default: errorMsg = `请求失败 (HTTP ${response.status})`;
-                    }
-                    if (errorData.error && errorData.error.message) errorMsg += `: ${errorData.error.message}`;
-                    throw new Error(errorMsg);
-                }
-
-                const data = await response.json();
-                if (!data.data || !Array.isArray(data.data) || data.data.length === 0) {
-                    throw new Error('API 返回数据格式异常，未包含图片信息');
-                }
-                const imageUrls = data.data
-                    .map(item => item.url || item.b64_json || null)
-                    .filter(Boolean);
-                if (imageUrls.length === 0) throw new Error('API 未返回有效的图片地址');
-
-                const processedUrls = imageUrls.map(url => {
-                    if (url.startsWith('data:image') || url.startsWith('http://') || url.startsWith('https://')) return url;
-                    return `data:image/png;base64,${url}`;
-                });
-
-                renderResults(processedUrls, prompt, size);
-                showToast(`✅ 成功生成 ${processedUrls.length} 张图片！`);
-
-            } catch (error) {
-                clearTimeout(timeoutId);
-                if (error.name === 'AbortError') {
-                    showStatus('⏰ 请求超时（120秒），请重试', 'error');
-                } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-                    showStatus('🌐 网络连接失败，请检查网络或代理状态', 'error');
-                } else {
-                    showStatus(`❌ ${error.message}`, 'error');
-                }
-                resultsSection.classList.remove('visible');
-            } finally {
-                isGenerating = false;
-                generateBtn.classList.remove('loading');
-                generateBtn.disabled = false;
-            }
-        }
-
-        generateBtn.addEventListener('click', generateImages);
-
-        promptInput.addEventListener('keydown', (e) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                e.preventDefault();
-                generateImages();
-            }
-        });
-
-        function init() {
-            loadApiKey();
-            if (!apiKey) setTimeout(() => apiKeyInput.focus(), 600);
-            charCount.textContent = '0 / 4000';
-            console.log('✅ Agnes 文生图页面已就绪 (代理模式)');
-            console.log('   代理地址: https://api.chatlz.dpdns.org/v1/images/generations');
-        }
-        init();
-    })();
+  // ── Toast ──
+  function showToast(msg, type) {
+    toast.textContent = msg;
+    toast.className = 'toast';
+    if (type === 'success') toast.classList.add('ok');
+    toast.classList.add('show');
+    clearTimeout(timer);
+    timer = setTimeout(() => toast.classList.remove('show'), 2800);
+  }
 </script>
 </body>
 </html>
