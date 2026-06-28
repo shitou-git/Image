@@ -420,7 +420,14 @@
     justify-content: center;
   }
 
-  .img-card img { width: 100%; height: auto; display: block; }
+  .img-card img {
+    width: 100%;
+    height: auto;
+    display: block;
+    max-height: 500px;
+    object-fit: contain;
+    background: var(--card);
+  }
 
   .img-card .card-actions {
     position: absolute;
@@ -459,9 +466,9 @@
     inset: 0;
     background: rgba(0,0,0,0.85);
     z-index: 1000;
-    align-items: flex-start;
+    align-items: center;
     justify-content: center;
-    padding: 60px 24px;
+    padding: 24px;
     backdrop-filter: blur(6px);
     overflow: auto;
     cursor: zoom-out;
@@ -491,12 +498,14 @@
   .modal-close svg { width: 22px; height: 22px; }
 
   .modal-img {
-    max-width: none;
-    max-height: none;
+    max-width: 92vw;
+    max-height: 88vh;
     width: auto;
     height: auto;
+    object-fit: contain;
     border-radius: 6px;
     box-shadow: 0 8px 60px rgba(0,0,0,0.6);
+    display: block;
   }
 
   /* ───── Toast ───── */
@@ -1396,6 +1405,7 @@
         imgEl.src = url;
         imgEl.alt = '生成图像 ' + (idx + 1);
         imgEl.loading = 'lazy';
+        imgEl.decoding = 'async';
 
         const actions = document.createElement('div');
         actions.className = 'card-actions';
