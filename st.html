@@ -508,6 +508,30 @@
     display: block;
   }
 
+  .modal-nav {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(8px);
+    color: rgba(255,255,255,0.9);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1001;
+    transition: all 0.2s;
+  }
+  .modal-nav:hover { background: rgba(255,255,255,0.2); color: #fff; }
+  .modal-nav svg { width: 22px; height: 22px; }
+  .modal-nav-prev { left: 24px; }
+  .modal-nav-next { right: 24px; }
+  .modal-nav:disabled { opacity: 0.3; cursor: not-allowed; }
+
   /* ───── Toast ───── */
   .toast {
     position: fixed;
@@ -961,6 +985,12 @@
   <button class="modal-close" id="modalClose">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
   </button>
+  <button class="modal-nav modal-nav-prev" id="modalPrev" style="display:none;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+  </button>
+  <button class="modal-nav modal-nav-next" id="modalNext" style="display:none;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+  </button>
   <img class="modal-img" id="modalImg" alt="放大预览">
 </div>
 
@@ -981,6 +1011,10 @@
   const modal = document.getElementById('modal');
   const modalImg = document.getElementById('modalImg');
   const modalClose = document.getElementById('modalClose');
+  const modalPrev = document.getElementById('modalPrev');
+  const modalNext = document.getElementById('modalNext');
+  let modalImages = [];
+  let modalIndex = 0;
 
   // T2I refs
   const promptEl = document.getElementById('prompt');
@@ -1048,6 +1082,9 @@
   let timer;
   // 供图生图跳转使用的存储
   let pendingImageUrl = '';
+  // 防止重复生成
+  let isGenerating = false;
+  let generateAbortController = null;
 
   // ── Mode switch ──
   let currentMode = 't2i';
@@ -1327,6 +1364,11 @@
   btnI2i.addEventListener('click', () => generate('i2i'));
 
   async function generate(mode) {
+    if (isGenerating) {
+      showToast('正在生成中，请稍候...', 'error');
+      return;
+    }
+
     let prompt, size, n, image;
 
     if (mode === 't2i') {
@@ -1351,9 +1393,15 @@
     }
 
     const btn = mode === 't2i' ? btnT2i : btnI2i;
+    isGenerating = true;
     btn.disabled = true;
     btn.classList.add('loading');
     placeholder.style.display = 'none';
+
+    if (generateAbortController) {
+      generateAbortController.abort();
+    }
+    generateAbortController = new AbortController();
 
     grid.innerHTML = '';
     grid.className = 'grid n' + n;
@@ -1381,6 +1429,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
+        signal: generateAbortController.signal,
       });
 
       const data = await res.json();
@@ -1392,11 +1441,13 @@
       grid.innerHTML = '';
       const actualN = Math.min(items.length, n);
       grid.className = 'grid n' + actualN;
+      const allImages = [];
 
       items.slice(0, n).forEach((item, idx) => {
         let url = item.url;
         if (!url && item.b64_json) url = 'data:image/png;base64,' + item.b64_json;
         if (!url) return;
+        allImages.push(url);
 
         const card = document.createElement('div');
         card.className = 'img-card';
@@ -1415,7 +1466,10 @@
         zoomBtn.className = 'card-btn';
         zoomBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>';
         zoomBtn.title = '查看原图';
-        zoomBtn.addEventListener('click', e => { e.stopPropagation(); openModal(url); });
+        zoomBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          openModal(url, allImages, idx);
+        });
         actions.appendChild(zoomBtn);
 
         // 图生图按钮（仅文生图模式下显示）
@@ -1439,10 +1493,15 @@
 
       showToast('生成完成！', 'success');
     } catch (e) {
+      if (e.name === 'AbortError') {
+        return;
+      }
       placeholder.style.display = '';
       grid.innerHTML = '';
       showToast(e.message, 'error');
     } finally {
+      isGenerating = false;
+      generateAbortController = null;
       btn.disabled = false;
       btn.classList.remove('loading');
     }
@@ -1617,20 +1676,57 @@
   }
 
   // ── 放大预览 ──
-  function openModal(url) {
-    modalImg.src = url;
+  function openModal(url, images, index) {
+    modalImages = images && images.length > 0 ? images : [url];
+    modalIndex = index || 0;
+    updateModalImage();
     modal.classList.add('open');
     document.body.style.overflow = 'hidden';
+
+    if (modalImages.length > 1) {
+      modalPrev.style.display = 'flex';
+      modalNext.style.display = 'flex';
+    } else {
+      modalPrev.style.display = 'none';
+      modalNext.style.display = 'none';
+    }
+    updateModalNavButtons();
+  }
+
+  function updateModalImage() {
+    modalImg.src = modalImages[modalIndex];
+  }
+
+  function updateModalNavButtons() {
+    modalPrev.disabled = modalIndex <= 0;
+    modalNext.disabled = modalIndex >= modalImages.length - 1;
+  }
+
+  function switchModalImage(dir) {
+    const newIndex = modalIndex + dir;
+    if (newIndex < 0 || newIndex >= modalImages.length) return;
+    modalIndex = newIndex;
+    updateModalImage();
+    updateModalNavButtons();
   }
 
   function closeModal() {
     modal.classList.remove('open');
     document.body.style.overflow = '';
+    modalImages = [];
+    modalIndex = 0;
   }
 
   modalClose.addEventListener('click', closeModal);
+  modalPrev.addEventListener('click', e => { e.stopPropagation(); switchModalImage(-1); });
+  modalNext.addEventListener('click', e => { e.stopPropagation(); switchModalImage(1); });
   modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.classList.contains('open')) closeModal(); });
+  document.addEventListener('keydown', e => {
+    if (!modal.classList.contains('open')) return;
+    if (e.key === 'Escape') closeModal();
+    if (e.key === 'ArrowLeft') switchModalImage(-1);
+    if (e.key === 'ArrowRight') switchModalImage(1);
+  });
 
   // ── Toast ──
   function showToast(msg, type) {
