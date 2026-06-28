@@ -1860,32 +1860,20 @@
       if (steps) payload.num_inference_steps = parseInt(steps);
       if (seedVal) payload.seed = parseInt(seedVal);
 
-      // 自动轮询创建：上游可能慢，持续重试直到成功
-      let video_id = null;
-      let retryCount = 0;
-      while (!video_id) {
-        retryCount++;
-        if (retryCount > 10) throw new Error('创建任务超时，请稍后重试');
-        if (retryCount > 1) {
-          videoStatusText.textContent = `上游繁忙，正在等待创建... (${(retryCount-1)}min)`;
-          await new Promise(r => setTimeout(r, 8000));
-        }
-        const res = await fetch(VIDEO_API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        const text = await res.text();
-        let data;
-        try { data = JSON.parse(text); } catch (e) { throw new Error(text || '请求失败'); }
-        if (res.ok && data.retry) continue;
-        if (!res.ok) throw new Error(data.error || data.message || '请求失败');
-        video_id = data.video_id || data.id;
-        if (!video_id) continue;
-      }
+      videoStatusText.textContent = '正在创建视频任务...';
+      const res = await fetch(VIDEO_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); } catch (e) { throw new Error(text || '请求失败'); }
+      if (!res.ok) throw new Error(data.error || data.message || '请求失败');
+      const video_id = data.video_id || data.id;
       if (!video_id) throw new Error('未获取到视频任务 ID');
 
-      videoStatusText.textContent = '任务已创建，正在轮询进度...';
+      videoStatusText.textContent = '任务已创建，正在生成...';
       await pollVideo(video_id);
     } catch (e) {
       videoResultArea.classList.add('hidden');
@@ -1901,30 +1889,29 @@
     let completed = false;
     let attempts = 0;
     let failCount = 0;
-    const maxAttempts = 60; // ~60 分钟超时
-    let pollController = null;
+    const maxAttempts = 300;
+    const pollInterval = 3000;
+    let firstPoll = true;
 
     while (!completed && attempts < maxAttempts) {
       attempts++;
-      await new Promise(r => setTimeout(r, 8000));
-
-      // 取消上一次未完成的轮询
-      if (pollController) pollController.abort();
-      pollController = new AbortController();
+      if (!firstPoll) {
+        await new Promise(r => setTimeout(r, pollInterval));
+      }
+      firstPoll = false;
 
       try {
         const res = await fetch(VIDEO_API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'poll', video_id }),
-          signal: pollController.signal,
+          body: JSON.stringify({ action: 'poll', video_id, model_name: 'agnes-video-v2.0' }),
         });
         const text = await res.text();
         let data;
         try { data = JSON.parse(text); } catch (e) { throw new Error(text || '轮询失败'); }
         if (!res.ok) throw new Error(data.error || data.message || '轮询失败');
 
-        failCount = 0; // 成功后重置失败计数
+        failCount = 0;
 
         const status = data.status || '';
         const progress = data.progress || 0;
@@ -1946,16 +1933,18 @@
         } else if (status === 'failed' || status === 'error') {
           throw new Error(data.error || '视频生成失败');
         } else {
-          const txt = status === 'in_progress' ? `正在生成视频... ${progress}%`
-            : status === 'queued' ? `任务排队中... (${Math.round(attempts)}min)`
-            : `任务已提交，等待处理... (${Math.round(attempts)}min)`;
+          const waitSeconds = Math.round(attempts * pollInterval / 1000);
+          const waitMin = Math.floor(waitSeconds / 60);
+          const waitSec = waitSeconds % 60;
+          const waitStr = waitMin > 0 ? `${waitMin}分${waitSec}秒` : `${waitSec}秒`;
+          const txt = status === 'in_progress' ? `正在生成视频... ${progress}% (${waitStr})`
+            : status === 'queued' ? `任务排队中... (${waitStr})`
+            : `任务处理中... (${waitStr})`;
           videoStatusText.textContent = txt;
         }
       } catch (err) {
-        if (err.name === 'AbortError') continue; // 被取消，正常跳过
         failCount++;
-        if (failCount >= 3) throw new Error(`轮询失败: ${err.message}`);
-        // 失败重试，不更新界面
+        if (failCount >= 5) throw new Error(`轮询失败: ${err.message}`);
       }
     }
 
