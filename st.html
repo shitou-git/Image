@@ -1373,6 +1373,9 @@
   let timer;
   // 供图生图跳转使用的存储
   let pendingImageUrl = '';
+  // 防止重复生成
+  let isGenerating = false;
+  let generateAbortController = null;
 
   // ── Mode switch ──
   let currentMode = 't2i';
@@ -1646,10 +1649,10 @@
   setupStyleChips('.i2i-chip', styleWordsI2i);
 
   // ── 生成: 文生图 ──
-  btnT2i.addEventListener('click', () => generate('t2i'));
+  btnT2i.addEventListener('click', () => generateWithSave('t2i'));
 
   // ── 生成: 图生图 ──
-  btnI2i.addEventListener('click', () => generate('i2i'));
+  btnI2i.addEventListener('click', () => generateWithSave('i2i'));
 
   async function generate(mode) {
     let prompt, size, n, image;
@@ -2319,6 +2322,11 @@
   // ── 生成图片后自动保存 ──
   const originalGenerate = generate;
   async function generateWithSave(mode) {
+    if (isGenerating) {
+      showToast('正在生成中，请稍候...', 'error');
+      return;
+    }
+
     let prompt, size, n, image, styleText;
 
     if (mode === 't2i') {
@@ -2345,9 +2353,15 @@
     }
 
     const btn = mode === 't2i' ? btnT2i : btnI2i;
+    isGenerating = true;
     btn.disabled = true;
     btn.classList.add('loading');
     placeholder.style.display = 'none';
+
+    if (generateAbortController) {
+      generateAbortController.abort();
+    }
+    generateAbortController = new AbortController();
 
     grid.innerHTML = '';
     grid.className = 'grid n' + n;
@@ -2375,6 +2389,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
+        signal: generateAbortController.signal,
       });
 
       const data = await res.json();
@@ -2472,19 +2487,19 @@
 
       showToast('生成完成！', 'success');
     } catch (e) {
+      if (e.name === 'AbortError') {
+        return;
+      }
       placeholder.style.display = '';
       grid.innerHTML = '';
       showToast(e.message, 'error');
     } finally {
+      isGenerating = false;
+      generateAbortController = null;
       btn.disabled = false;
       btn.classList.remove('loading');
     }
   }
-
-  btnT2i.removeEventListener('click', () => generate('t2i'));
-  btnI2i.removeEventListener('click', () => generate('i2i'));
-  btnT2i.addEventListener('click', () => generateWithSave('t2i'));
-  btnI2i.addEventListener('click', () => generateWithSave('i2i'));
 
   // ═══════════════════════════════════════════════════════════════
   // 用户认证系统
