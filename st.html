@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI 图像生成</title>
+<title>图像生成</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -233,7 +233,7 @@
 
   .preset-btn:hover { border-color: var(--accent); background: var(--accent-dim); }
   .preset-btn .p-title { font-size: 0.8rem; font-weight: 600; color: var(--text); }
-  .preset-btn .p-style { font-size: 0.66rem; color: var(--accent); font-weight: 500; }
+  .preset-btn .p-style { font-size: 0.66rem; color: var(--text-dim); font-weight: 500; }
 
   /* ─── 输入框 ─── */
   .field { margin-bottom: 12px; }
@@ -258,6 +258,33 @@
 
   textarea::placeholder { color: var(--text-muted); }
   textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+
+  .textarea-wrap {
+    position: relative;
+  }
+
+  .textarea-clear {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(128,128,128,0.3);
+    color: var(--text-muted);
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    padding: 0;
+    z-index: 2;
+  }
+
+  .textarea-clear:hover { background: rgba(200,200,200,0.3); color: var(--text); }
+  .textarea-clear.show { display: flex; }
+  .textarea-clear svg { width: 12px; height: 12px; }
 
   .style-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 
@@ -561,7 +588,12 @@
           <label for="prompt">提示词</label>
           <span class="count"><span id="charCount">0</span> / 1000</span>
         </div>
-        <textarea id="prompt" placeholder="描述你想要生成的图像" maxlength="1000" rows="3"></textarea>
+        <div class="textarea-wrap">
+          <textarea id="prompt" placeholder="描述你想要生成的图像" maxlength="1000" rows="3"></textarea>
+          <button class="textarea-clear" id="clearPrompt">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
       </div>
 
       <div class="field">
@@ -866,14 +898,25 @@
     }
   }
 
-  // ── 字数统计 ──
-  promptEl.addEventListener('input', () => { charCount.textContent = promptEl.value.length; });
+  // ── 字数统计 & 清除按钮 ──
+  promptEl.addEventListener('input', () => {
+    charCount.textContent = promptEl.value.length;
+    document.getElementById('clearPrompt').classList.toggle('show', promptEl.value.length > 0);
+  });
+
+  document.getElementById('clearPrompt').addEventListener('click', () => {
+    promptEl.value = '';
+    charCount.textContent = '0';
+    document.getElementById('clearPrompt').classList.remove('show');
+    promptEl.focus();
+  });
 
   // ── 快捷预设 ──
   document.querySelectorAll('.preset-btn').forEach(el => {
     el.addEventListener('click', () => {
       promptEl.value = el.getAttribute('data-prompt');
       charCount.textContent = promptEl.value.length;
+      document.getElementById('clearPrompt').classList.toggle('show', promptEl.value.length > 0);
       promptEl.focus();
     });
   });
