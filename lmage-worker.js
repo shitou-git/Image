@@ -72,6 +72,7 @@ async function handleGenerate(request, env) {
       model: 'agnes-image-2.1-flash',
       prompt,
       size,
+      response_format: 'b64_json',
       extra_body: { response_format: 'b64_json' },
     };
 

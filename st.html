@@ -2475,6 +2475,7 @@
   });
 
   // ── 加载历史记录 ──
+  let historyForcePending = false;
   async function loadHistory(force = false, silent = false) {
     if (!force && historyCache) {
       if (silent) return;
@@ -2490,7 +2491,12 @@
       }
       return;
     }
-    if (historyLoading) return;
+    if (historyLoading) {
+      if (force) {
+        historyForcePending = true;
+      }
+      return;
+    }
     historyLoading = true;
     if (!silent) {
       historyGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted);">加载中...</div>';
@@ -2504,27 +2510,36 @@
       }
       const items = data.items || [];
       historyCache = items;
-      if (silent) return;
-      if (items.length === 0) {
+      if (silent && !historyForcePending) return;
+      if (items.length === 0 && !historyForcePending) {
         placeholder.style.display = '';
         placeholderText.textContent = '暂无历史记录';
         historyGrid.classList.add('hidden');
         return;
       }
-      placeholder.style.display = 'none';
-      renderHistoryGrid(historyGrid, items);
+      if (!historyForcePending) {
+        placeholder.style.display = 'none';
+        renderHistoryGrid(historyGrid, items);
+      }
     } catch (e) {
-      if (silent) return;
-      storageInfo.textContent = '';
-      placeholder.style.display = '';
-      placeholderText.textContent = '加载失败: ' + e.message;
-      historyGrid.classList.add('hidden');
+      if (silent && !historyForcePending) return;
+      if (!historyForcePending) {
+        storageInfo.textContent = '';
+        placeholder.style.display = '';
+        placeholderText.textContent = '加载失败: ' + e.message;
+        historyGrid.classList.add('hidden');
+      }
     } finally {
       historyLoading = false;
+      if (historyForcePending) {
+        historyForcePending = false;
+        loadHistory(true, silent);
+      }
     }
   }
 
   // ── 加载保存 ──
+  let favoritesForcePending = false;
   async function loadFavorites(force = false, silent = false) {
     if (!force && favoritesCache) {
       if (silent) return;
@@ -2540,7 +2555,12 @@
       }
       return;
     }
-    if (favoritesLoading) return;
+    if (favoritesLoading) {
+      if (force) {
+        favoritesForcePending = true;
+      }
+      return;
+    }
     favoritesLoading = true;
     if (!silent) {
       favGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted);">加载中...</div>';
@@ -2550,22 +2570,30 @@
       const data = await listImages(1, 50, true, true);
       const items = data.items || [];
       favoritesCache = items;
-      if (silent) return;
-      if (items.length === 0) {
+      if (silent && !favoritesForcePending) return;
+      if (items.length === 0 && !favoritesForcePending) {
         placeholder.style.display = '';
         placeholderText.textContent = '暂无保存的图片';
         favGrid.classList.add('hidden');
         return;
       }
-      placeholder.style.display = 'none';
-      renderHistoryGrid(favGrid, items, true);
+      if (!favoritesForcePending) {
+        placeholder.style.display = 'none';
+        renderHistoryGrid(favGrid, items, true);
+      }
     } catch (e) {
-      if (silent) return;
-      placeholder.style.display = '';
-      placeholderText.textContent = '加载失败: ' + e.message;
-      favGrid.classList.add('hidden');
+      if (silent && !favoritesForcePending) return;
+      if (!favoritesForcePending) {
+        placeholder.style.display = '';
+        placeholderText.textContent = '加载失败: ' + e.message;
+        favGrid.classList.add('hidden');
+      }
     } finally {
       favoritesLoading = false;
+      if (favoritesForcePending) {
+        favoritesForcePending = false;
+        loadFavorites(true, silent);
+      }
     }
   }
 
