@@ -1599,18 +1599,29 @@
   }
 
   function setI2iImage(url) {
-    // 切换到 URL 模式
-    const urlTab = imgSourceTabs.querySelector('[data-src="url"]');
-    if (urlTab) urlTab.click();
-    imgUrl.value = url;
-    // 加载预览
-    urlPreview.src = url;
-    urlPreview.onload = () => {
-      urlPreviewWrap.classList.add('has-img');
-    };
-    urlPreview.onerror = () => {
-      showToast('图片加载失败，请检查地址', 'error');
-    };
+    const isBase64 = url.startsWith('data:');
+    if (isBase64) {
+      const uploadTab = imgSourceTabs.querySelector('[data-src="upload"]');
+      if (uploadTab) uploadTab.click();
+      uploadPreview.src = url;
+      uploadPreview.onload = () => {
+        fileUploadArea.classList.add('has-img');
+      };
+      uploadPreview.onerror = () => {
+        showToast('图片加载失败', 'error');
+      };
+    } else {
+      const urlTab = imgSourceTabs.querySelector('[data-src="url"]');
+      if (urlTab) urlTab.click();
+      imgUrl.value = url;
+      urlPreview.src = url;
+      urlPreview.onload = () => {
+        urlUploadArea.classList.add('has-img');
+      };
+      urlPreview.onerror = () => {
+        showToast('图片加载失败，请检查地址', 'error');
+      };
+    }
   }
 
   // ── 图生图图片来源切换 ──
