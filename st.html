@@ -1364,7 +1364,7 @@
         <button class="result-tab" data-rtab="history">历史记录</button>
         <button class="result-tab" data-rtab="favorites">保存</button>
       </div>
-      <div class="history-storage-info" id="storageInfo"></div>
+      <div class="history-storage-info" id="storageInfo" style="display:none;"></div>
     </div>
     <div class="right-placeholder" id="placeholder">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
@@ -2460,12 +2460,15 @@
         placeholder.style.display = hasItems ? 'none' : '';
         placeholderText.textContent = '输入提示词，点击生成';
         grid.classList.remove('hidden');
+        storageInfo.style.display = 'none';
         videoResultArea.classList.toggle('hidden', currentMode !== 'video');
       } else if (rtab === 'history') {
         videoResultArea.classList.add('hidden');
+        storageInfo.style.display = '';
         loadHistory();
       } else if (rtab === 'favorites') {
         videoResultArea.classList.add('hidden');
+        storageInfo.style.display = 'none';
         loadFavorites();
       }
     });
@@ -2790,10 +2793,8 @@
               }
             }
           }
-          // 自动保存完成后刷新历史记录缓存
-          if (historyCache) {
-            loadHistory(true);
-          }
+          // 自动保存完成后静默刷新历史记录缓存
+          loadHistory(true, true);
         } catch (e) {
           console.error('自动保存失败:', e);
         }
