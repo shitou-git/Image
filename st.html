@@ -2712,6 +2712,7 @@
 
       const allUrls = [];
       const savedItems = [];
+      const savedItemIds = [];
       items.slice(0, n).forEach(item => {
         let url = item.url;
         if (!url && item.b64_json) url = 'data:image/png;base64,' + item.b64_json;
@@ -2720,6 +2721,27 @@
           savedItems.push({ ...item, url });
         }
       });
+
+      // 自动保存到历史记录（后台静默执行）
+      (async () => {
+        try {
+          for (let i = 0; i < savedItems.length; i++) {
+            const item = savedItems[i];
+            let b64 = item.b64_json;
+            if (!b64 && item.url && item.url.startsWith('data:image')) {
+              b64 = item.url.split(',')[1];
+            }
+            if (b64) {
+              const res = await saveImage(prompt, size, styleText || '', b64, 'agnes-image-2.1-flash');
+              if (res && res.id) {
+                savedItemIds[i] = res.id;
+              }
+            }
+          }
+        } catch (e) {
+          console.error('自动保存失败:', e);
+        }
+      })();
 
       savedItems.forEach((item, idx) => {
         const url = item.url;
@@ -2748,11 +2770,12 @@
 
         const saveBtn = document.createElement('button');
         saveBtn.className = 'card-btn';
-        saveBtn.style.backgroundColor = 'rgba(52,211,153,0.6)';
         saveBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>';
-        saveBtn.title = '保存到历史';
+        saveBtn.title = '永久保存';
+        let saved = false;
         saveBtn.addEventListener('click', async e => {
           e.stopPropagation();
+          if (saved) return;
           try {
             let b64 = item.b64_json;
             if (!b64 && url.startsWith('data:image')) {
@@ -2762,11 +2785,19 @@
               showToast('无法保存：缺少图片数据', 'error');
               return;
             }
-            await saveImage(prompt, size, styleText || '', b64, 'agnes-image-2.1-flash');
-            showToast('已保存到历史记录', 'success');
-            saveBtn.style.opacity = '0.5';
-            saveBtn.style.cursor = 'default';
-            saveBtn.disabled = true;
+            let imgId = savedItemIds[idx];
+            if (!imgId) {
+              const saveRes = await saveImage(prompt, size, styleText || '', b64, 'agnes-image-2.1-flash');
+              imgId = saveRes?.id;
+            }
+            if (imgId) {
+              await updateImage(imgId, true);
+            }
+            saved = true;
+            saveBtn.style.backgroundColor = 'rgba(59,130,246,0.6)';
+            saveBtn.querySelector('svg').setAttribute('fill', 'currentColor');
+            saveBtn.title = '已保存';
+            showToast('已永久保存', 'success');
           } catch (err) {
             showToast(err.message, 'error');
           }
