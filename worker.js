@@ -99,6 +99,21 @@ export default {
             } catch (e) {}
           }
           const errMsg = pollData.error?.message || pollData.error || pollData.message || pollText;
+          const headers = corsHeaders();
+          if (pollRes.status === 429) {
+            headers['Retry-After'] = '30';
+            return new Response(JSON.stringify({ error: errMsg, is_rate_limit: true }), {
+              status: 429,
+              headers,
+            });
+          }
+          if (pollRes.status === 503) {
+            headers['Retry-After'] = '15';
+            return new Response(JSON.stringify({ error: errMsg, is_service_busy: true }), {
+              status: 503,
+              headers,
+            });
+          }
           return new Response(JSON.stringify({ error: errMsg }), {
             status: pollRes.status,
             headers: corsHeaders(),

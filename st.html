@@ -1958,7 +1958,16 @@
         const text = await res.text();
         let data;
         try { data = JSON.parse(text); } catch (e) { throw new Error(text || '轮询失败'); }
-        if (!res.ok) throw new Error(data.error || data.message || '轮询失败');
+
+        if (!res.ok) {
+          const errMsg = data.error?.message || data.error || data.message || text || '轮询失败';
+          if (res.status === 429 || errMsg.includes('rate limit') || errMsg.includes('限流')) {
+            videoStatusText.textContent = '⏳ API限流中，等待30秒后继续轮询...';
+            await new Promise(r => setTimeout(r, 30000));
+            continue;
+          }
+          throw new Error(errMsg);
+        }
 
         failCount = 0;
 
@@ -1992,7 +2001,7 @@
 
           if (status === 'in_progress') {
             txt = `🎬 正在生成视频... ${progress}% (${timeStr})`;
-            interval = 3000;
+            interval = 5000;
           } else if (status === 'queued') {
             if (elapsed > 120 && !queuedWarningShown) {
               queuedWarningShown = true;
@@ -2003,10 +2012,10 @@
               showToast('排队时间较长，可稍后再来查看', 'info');
             }
             txt = `⏳ 任务排队中... (${timeStr})`;
-            interval = 10000;
+            interval = 15000;
           } else {
             txt = `⏳ 任务处理中... (${timeStr})`;
-            interval = 8000;
+            interval = 10000;
           }
           videoStatusText.textContent = txt;
           await new Promise(r => setTimeout(r, interval));
