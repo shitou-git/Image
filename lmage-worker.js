@@ -193,6 +193,24 @@ async function handleSaveImage(db, kv, body, request) {
         INSERT INTO generated_images (id, user_id, prompt, size, style, image_b64, model, created_at)
         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
       `).bind(id, userId, prompt, size || '', style || '', image_b64, model || '', ts).run();
+
+      const HISTORY_LIMIT = 10;
+      const countResult = await db.prepare(
+        'SELECT COUNT(*) as total FROM generated_images WHERE user_id = ?1'
+      ).bind(userId).first();
+      const total = countResult?.total || 0;
+      if (total > HISTORY_LIMIT) {
+        const excess = total - HISTORY_LIMIT;
+        const oldIds = await db.prepare(
+          'SELECT id FROM generated_images WHERE user_id = ?1 AND is_favorite = 0 ORDER BY created_at ASC LIMIT ?2'
+        ).bind(userId, excess).all();
+        if (oldIds && oldIds.results && oldIds.results.length > 0) {
+          for (const row of oldIds.results) {
+            await db.prepare('DELETE FROM generated_images WHERE id = ?1').bind(row.id).run();
+          }
+        }
+      }
+
       return jsonResponse({ id, created_at: ts }, 200, request);
     } catch (e) {
       console.error('DB save error:', e);
@@ -218,6 +236,21 @@ async function handleSaveImage(db, kv, body, request) {
         model: model || '', is_favorite: false,
         user_id: userId, created_at: ts,
       });
+
+      const HISTORY_LIMIT = 10;
+      const userItems = index.filter(i => !i.user_id || i.user_id === userId || i.user_id === 'public');
+      if (userItems.length > HISTORY_LIMIT) {
+        const nonFavSorted = userItems
+          .filter(i => !i.is_favorite)
+          .sort((a, b) => a.created_at - b.created_at);
+        const excess = userItems.length - HISTORY_LIMIT;
+        const toDelete = nonFavSorted.slice(0, excess);
+        for (const item of toDelete) {
+          try { await kv.delete(KV_PREFIX + item.id); } catch (e) {}
+          index = index.filter(i => i.id !== item.id);
+        }
+      }
+
       await kv.put(KV_INDEX, JSON.stringify(index));
       return jsonResponse({ id, created_at: ts }, 200, request);
     } catch (e) {

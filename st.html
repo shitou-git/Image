@@ -1362,7 +1362,7 @@
       <div class="result-tabs">
         <button class="result-tab active" data-rtab="generated">生成结果</button>
         <button class="result-tab" data-rtab="history">历史记录</button>
-        <button class="result-tab" data-rtab="favorites">收藏</button>
+        <button class="result-tab" data-rtab="favorites">保存</button>
       </div>
       <div class="history-storage-info" id="storageInfo"></div>
     </div>
@@ -2402,7 +2402,7 @@
     }
   }
 
-  // ── 更新图片（收藏） ──
+  // ── 更新图片（保存状态） ──
   async function updateImage(id, isFavorite) {
     try {
       const res = await fetch(API_URL + '/api/images/' + id, {
@@ -2462,7 +2462,8 @@
     historyGrid.classList.remove('hidden');
     try {
       const data = await listImages(1, 50, false, true);
-      storageInfo.textContent = data.storage ? ('存储: ' + (data.storage === 'd1' ? 'D1数据库' : 'KV存储')) : '';
+      const storageType = data.storage === 'd1' ? 'D1数据库' : (data.storage === 'kv' ? 'KV存储' : '');
+      storageInfo.textContent = data.storage ? ('存储: ' + storageType + ' · 历史记录保留最近10张') : '';
       const items = data.items || [];
       if (items.length === 0) {
         placeholder.style.display = '';
@@ -2480,7 +2481,7 @@
     }
   }
 
-  // ── 加载收藏 ──
+  // ── 加载保存 ──
   async function loadFavorites() {
     favGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted);">加载中...</div>';
     favGrid.classList.remove('hidden');
@@ -2489,7 +2490,7 @@
       const items = data.items || [];
       if (items.length === 0) {
         placeholder.style.display = '';
-        placeholderText.textContent = '暂无收藏图片';
+        placeholderText.textContent = '暂无保存的图片';
         favGrid.classList.add('hidden');
         return;
       }
@@ -2502,7 +2503,7 @@
     }
   }
 
-  // ── 渲染历史/收藏图片网格 ──
+  // ── 渲染历史/保存图片网格 ──
   function renderHistoryGrid(container, items, isFavView) {
     container.innerHTML = '';
     container.className = 'grid n4';
@@ -2548,9 +2549,9 @@
       const favBtn = document.createElement('button');
       favBtn.className = 'card-btn';
       const isFav = item.is_favorite === true || item.is_favorite === 1;
-      favBtn.style.backgroundColor = isFav ? 'rgba(244,114,182,0.6)' : '';
-      favBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="' + (isFav ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
-      favBtn.title = isFav ? '取消收藏' : '收藏';
+      favBtn.style.backgroundColor = isFav ? 'rgba(59,130,246,0.6)' : '';
+      favBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="' + (isFav ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>';
+      favBtn.title = isFav ? '取消保存' : '保存';
       favBtn.addEventListener('click', async e => {
         e.stopPropagation();
         try {
@@ -2561,7 +2562,7 @@
           } else {
             loadHistory();
           }
-          showToast(newFav ? '已收藏' : '已取消收藏', 'success');
+          showToast(newFav ? '已保存' : '已取消保存', 'success');
         } catch (err) {
           showToast(err.message, 'error');
         }
