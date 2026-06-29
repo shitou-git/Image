@@ -202,13 +202,13 @@ async function handleSaveImage(db, kv, body, request) {
       const total = countResult?.total || 0;
       if (total > HISTORY_LIMIT) {
         const excess = total - HISTORY_LIMIT;
-        const oldIds = await db.prepare(
-          'SELECT id FROM generated_images WHERE user_id = ?1 AND is_favorite = 0 ORDER BY created_at ASC LIMIT ?2'
-        ).bind(userId, excess).all();
-        if (oldIds && oldIds.results && oldIds.results.length > 0) {
-          for (const row of oldIds.results) {
-            await db.prepare('DELETE FROM generated_images WHERE id = ?1').bind(row.id).run();
-          }
+        // 先获取所有未收藏的记录，然后在代码中选择要删除的
+        const allOldIds = await db.prepare(
+          'SELECT id FROM generated_images WHERE user_id = ?1 AND is_favorite = 0 ORDER BY created_at ASC'
+        ).bind(userId).all();
+        const toDelete = (allOldIds.results || []).slice(0, excess);
+        for (const row of toDelete) {
+          await db.prepare('DELETE FROM generated_images WHERE id = ?1').bind(row.id).run();
         }
       }
 
