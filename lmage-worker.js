@@ -60,7 +60,7 @@ async function handleGenerate(request, env) {
 
   try {
     const body = await request.json();
-    const { prompt, size, n, image } = body;
+    const { prompt, size, n, image, negative_prompt, image_weight } = body;
 
     if (!prompt || !size) {
       return jsonResponse({ error: 'Missing required fields: prompt, size' }, 400, request);
@@ -77,6 +77,15 @@ async function handleGenerate(request, env) {
 
     if (image && image.length > 0) {
       agnesBody.image = image;
+    }
+
+    if (negative_prompt) {
+      agnesBody.negative_prompt = negative_prompt;
+    }
+
+    if (image_weight !== undefined && image_weight !== null) {
+      if (!agnesBody.extra_body) agnesBody.extra_body = {};
+      agnesBody.extra_body.image_weight = image_weight;
     }
 
     const reqs = Array.from({ length: count }, () =>
