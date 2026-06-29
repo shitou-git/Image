@@ -2546,6 +2546,17 @@
       zoomBtn.addEventListener('click', e => { e.stopPropagation(); openModal(url, allUrls); });
       actions.appendChild(zoomBtn);
 
+      const img2imgBtn = document.createElement('button');
+      img2imgBtn.className = 'card-btn';
+      img2imgBtn.style.backgroundColor = 'rgba(74,158,255,0.6)';
+      img2imgBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+      img2imgBtn.title = '图生图';
+      img2imgBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        switchToI2i(url);
+      });
+      actions.appendChild(img2imgBtn);
+
       const favBtn = document.createElement('button');
       favBtn.className = 'card-btn';
       const isFav = item.is_favorite === true || item.is_favorite === 1;
