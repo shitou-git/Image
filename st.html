@@ -2472,8 +2472,9 @@
   });
 
   // ── 加载历史记录 ──
-  async function loadHistory(force = false) {
+  async function loadHistory(force = false, silent = false) {
     if (!force && historyCache) {
+      if (silent) return;
       const items = historyCache;
       historyGrid.classList.remove('hidden');
       if (items.length === 0) {
@@ -2488,14 +2489,19 @@
     }
     if (historyLoading) return;
     historyLoading = true;
-    historyGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted);">加载中...</div>';
-    historyGrid.classList.remove('hidden');
+    if (!silent) {
+      historyGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted);">加载中...</div>';
+      historyGrid.classList.remove('hidden');
+    }
     try {
       const data = await listImages(1, 50, false, true);
-      const storageType = data.storage === 'd1' ? 'D1数据库' : (data.storage === 'kv' ? 'KV存储' : '');
-      storageInfo.textContent = data.storage ? ('温馨提示，历史记录只保留最近10张，如需长久保留请保存图片') : '';
+      if (!silent) {
+        const storageType = data.storage === 'd1' ? 'D1数据库' : (data.storage === 'kv' ? 'KV存储' : '');
+        storageInfo.textContent = data.storage ? ('温馨提示，历史记录只保留最近10张，如需长久保留请保存图片') : '';
+      }
       const items = data.items || [];
       historyCache = items;
+      if (silent) return;
       if (items.length === 0) {
         placeholder.style.display = '';
         placeholderText.textContent = '暂无历史记录';
@@ -2505,6 +2511,7 @@
       placeholder.style.display = 'none';
       renderHistoryGrid(historyGrid, items);
     } catch (e) {
+      if (silent) return;
       storageInfo.textContent = '';
       placeholder.style.display = '';
       placeholderText.textContent = '加载失败: ' + e.message;
@@ -2515,8 +2522,9 @@
   }
 
   // ── 加载保存 ──
-  async function loadFavorites(force = false) {
+  async function loadFavorites(force = false, silent = false) {
     if (!force && favoritesCache) {
+      if (silent) return;
       const items = favoritesCache;
       favGrid.classList.remove('hidden');
       if (items.length === 0) {
@@ -2531,12 +2539,15 @@
     }
     if (favoritesLoading) return;
     favoritesLoading = true;
-    favGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted);">加载中...</div>';
-    favGrid.classList.remove('hidden');
+    if (!silent) {
+      favGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted);">加载中...</div>';
+      favGrid.classList.remove('hidden');
+    }
     try {
       const data = await listImages(1, 50, true, true);
       const items = data.items || [];
       favoritesCache = items;
+      if (silent) return;
       if (items.length === 0) {
         placeholder.style.display = '';
         placeholderText.textContent = '暂无保存的图片';
@@ -2546,6 +2557,7 @@
       placeholder.style.display = 'none';
       renderHistoryGrid(favGrid, items, true);
     } catch (e) {
+      if (silent) return;
       placeholder.style.display = '';
       placeholderText.textContent = '加载失败: ' + e.message;
       favGrid.classList.add('hidden');
@@ -2953,10 +2965,10 @@
       currentUser = data;
       setAuthUser(data);
       updateUserUI(data);
-      // 预加载历史记录和保存的图片
+      // 静默预加载历史记录和保存的图片（不修改DOM）
       setTimeout(() => {
-        loadHistory();
-        loadFavorites();
+        loadHistory(false, true);
+        loadFavorites(false, true);
       }, 500);
     } catch (e) {
       setAuthToken('');
