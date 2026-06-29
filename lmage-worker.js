@@ -196,13 +196,14 @@ async function handleSaveImage(db, kv, body, request) {
       `).bind(id, userId, prompt, size || '', style || '', image_b64, model || '', ts).run();
 
       const HISTORY_LIMIT = 10;
+      // 只统计未收藏的图片数量，收藏的图片不受10张限制
       const countResult = await db.prepare(
-        'SELECT COUNT(*) as total FROM generated_images WHERE user_id = ?1'
+        'SELECT COUNT(*) as total FROM generated_images WHERE user_id = ?1 AND is_favorite = 0'
       ).bind(userId).first();
       const total = countResult?.total || 0;
       if (total > HISTORY_LIMIT) {
         const excess = total - HISTORY_LIMIT;
-        // 先获取所有未收藏的记录，然后在代码中选择要删除的
+        // 获取所有未收藏的记录，按时间从早到晚排序，删除最早的
         const allOldIds = await db.prepare(
           'SELECT id FROM generated_images WHERE user_id = ?1 AND is_favorite = 0 ORDER BY created_at ASC'
         ).bind(userId).all();
@@ -240,11 +241,12 @@ async function handleSaveImage(db, kv, body, request) {
 
       const HISTORY_LIMIT = 10;
       const userItems = index.filter(i => !i.user_id || i.user_id === userId || i.user_id === 'public');
-      if (userItems.length > HISTORY_LIMIT) {
-        const nonFavSorted = userItems
-          .filter(i => !i.is_favorite)
+      // 只统计未收藏的图片数量，收藏的图片不受10张限制
+      const nonFavItems = userItems.filter(i => !i.is_favorite);
+      if (nonFavItems.length > HISTORY_LIMIT) {
+        const nonFavSorted = nonFavItems
           .sort((a, b) => a.created_at - b.created_at);
-        const excess = userItems.length - HISTORY_LIMIT;
+        const excess = nonFavItems.length - HISTORY_LIMIT;
         const toDelete = nonFavSorted.slice(0, excess);
         for (const item of toDelete) {
           try { await kv.delete(KV_PREFIX + item.id); } catch (e) {}
