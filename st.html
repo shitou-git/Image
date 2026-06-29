@@ -1883,11 +1883,12 @@
       const video_id = data.video_id;
       if (!task_id) throw new Error('未获取到视频任务 ID');
 
-      videoStatusText.textContent = '任务已创建，正在生成...';
+      videoStatusText.textContent = '任务已创建，排队中...';
       await pollVideo(task_id, video_id);
     } catch (e) {
-      videoResultArea.classList.add('hidden');
-      grid.classList.remove('hidden');
+      videoStatusText.textContent = '❌ ' + e.message;
+      videoProgressFill.style.width = '0%';
+      videoStatusProgress.textContent = '';
       showToast(e.message, 'error');
     } finally {
       btnVideo.disabled = false;
@@ -1903,6 +1904,7 @@
     const pollInterval = 3000;
     let firstPoll = true;
     let pollStartTime = Date.now();
+    let queuedWarningShown = false;
 
     while (!completed && attempts < maxAttempts) {
       attempts++;
@@ -1944,20 +1946,33 @@
           completed = true;
           break;
         } else if (status === 'failed' || status === 'error') {
-          throw new Error(data.error || '视频生成失败');
+          const errMsg = data.error ? (data.error.message || data.error) : '视频生成失败';
+          throw new Error(errMsg);
         } else {
           const elapsed = Math.floor((Date.now() - pollStartTime) / 1000);
           const min = Math.floor(elapsed / 60);
           const sec = elapsed % 60;
           const timeStr = min > 0 ? `${min}分${sec}秒` : `${sec}秒`;
-          const txt = status === 'in_progress' ? `正在生成视频... ${progress}% (${timeStr})`
-            : status === 'queued' ? `任务排队中... (${timeStr})`
-            : `任务处理中... (${timeStr})`;
+          let txt;
+          if (status === 'in_progress') {
+            txt = `正在生成视频... ${progress}% (${timeStr})`;
+          } else if (status === 'queued') {
+            if (elapsed > 120 && !queuedWarningShown) {
+              queuedWarningShown = true;
+              showToast('当前排队人数较多，请耐心等待...', 'info');
+            }
+            txt = `任务排队中... (${timeStr})`;
+          } else {
+            txt = `任务处理中... (${timeStr})`;
+          }
           videoStatusText.textContent = txt;
         }
       } catch (err) {
         failCount++;
-        if (failCount >= 10) throw new Error(`轮询失败: ${err.message}`);
+        if (failCount >= 10) {
+          videoStatusText.textContent = '❌ ' + err.message;
+          throw err;
+        }
         await new Promise(r => setTimeout(r, 2000));
       }
     }
