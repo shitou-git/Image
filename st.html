@@ -1860,28 +1860,62 @@
       if (steps) payload.num_inference_steps = parseInt(steps);
       if (seedVal) payload.seed = parseInt(seedVal);
 
-      videoStatusText.textContent = '正在创建视频任务（首次可能需要1-2分钟）...';
+      videoStatusText.textContent = '正在创建视频任务...';
       let createStartTime = Date.now();
       let createInterval = setInterval(() => {
         const elapsed = Math.floor((Date.now() - createStartTime) / 1000);
         const min = Math.floor(elapsed / 60);
-        const sec = elapsed % 60;
+        const sec = Math.floor(elapsed % 60);
         videoStatusText.textContent = `正在创建视频任务... (${min > 0 ? min + '分' : ''}${sec}秒)`;
       }, 1000);
 
-      const res = await fetch(VIDEO_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      let task_id = null;
+      let video_id = null;
+      let createRetryCount = 0;
+      const maxCreateRetries = 5;
+
+      while (!video_id && !task_id && createRetryCount < maxCreateRetries) {
+        createRetryCount++;
+        try {
+          const res = await fetch(VIDEO_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const text = await res.text();
+          let data;
+          try { data = JSON.parse(text); } catch (e) { throw new Error(text || '请求失败'); }
+
+          if (!res.ok) {
+            const errMsg = data.error || data.message || '请求失败';
+            if (errMsg.includes('rate limit') || errMsg.includes('限流')) {
+              if (createRetryCount < maxCreateRetries) {
+                clearInterval(createInterval);
+                videoStatusText.textContent = `⏳ 触发限流，等待 65 秒后重试... (${createRetryCount}/${maxCreateRetries})`;
+                await new Promise(r => setTimeout(r, 65000));
+                createStartTime = Date.now();
+                createInterval = setInterval(() => {
+                  const elapsed = Math.floor((Date.now() - createStartTime) / 1000);
+                  const waitLeft = Math.max(0, 65 - elapsed);
+                  videoStatusText.textContent = `⏳ 限流中，${waitLeft} 秒后重试... (${createRetryCount}/${maxCreateRetries})`;
+                }, 1000);
+                continue;
+              }
+            }
+            throw new Error(errMsg);
+          }
+          task_id = data.task_id || data.id;
+          video_id = data.video_id;
+          if (!video_id && !task_id) throw new Error('未获取到视频任务 ID');
+        } catch (e) {
+          if (createRetryCount >= maxCreateRetries) throw e;
+          if (e.message.includes('rate limit') || e.message.includes('限流')) continue;
+          throw e;
+        }
+      }
       clearInterval(createInterval);
-      const text = await res.text();
-      let data;
-      try { data = JSON.parse(text); } catch (e) { throw new Error(text || '请求失败'); }
-      if (!res.ok) throw new Error(data.error || data.message || '请求失败');
-      const task_id = data.task_id || data.id;
-      const video_id = data.video_id;
-      if (!task_id) throw new Error('未获取到视频任务 ID');
+
+      if (!video_id && !task_id) throw new Error('创建任务失败');
 
       videoStatusText.textContent = '任务已创建，排队中...';
       await pollVideo(task_id, video_id);
@@ -1900,22 +1934,22 @@
     let completed = false;
     let attempts = 0;
     let failCount = 0;
-    const maxAttempts = 600;
-    const pollInterval = 3000;
-    let firstPoll = true;
+    const maxFailures = 20;
     let pollStartTime = Date.now();
     let queuedWarningShown = false;
+    let longWaitShown = false;
 
-    while (!completed && attempts < maxAttempts) {
+    while (!completed) {
       attempts++;
-      if (!firstPoll) {
-        await new Promise(r => setTimeout(r, pollInterval));
-      }
-      firstPoll = false;
 
       try {
-        const pollPayload = { action: 'poll', task_id, use_v1: true };
-        if (video_id) pollPayload.video_id = video_id;
+        const pollPayload = { action: 'poll' };
+        if (video_id) {
+          pollPayload.video_id = video_id;
+        }
+        if (task_id) {
+          pollPayload.task_id = task_id;
+        }
         const res = await fetch(VIDEO_API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1930,6 +1964,7 @@
 
         const status = data.status || '';
         const progress = data.progress || 0;
+        const elapsed = Math.floor((Date.now() - pollStartTime) / 1000);
 
         videoProgressFill.style.width = progress + '%';
         videoStatusProgress.textContent = progress + '%';
@@ -1949,31 +1984,41 @@
           const errMsg = data.error ? (data.error.message || data.error) : '视频生成失败';
           throw new Error(errMsg);
         } else {
-          const elapsed = Math.floor((Date.now() - pollStartTime) / 1000);
           const min = Math.floor(elapsed / 60);
-          const sec = elapsed % 60;
+          const sec = Math.floor(elapsed % 60);
           const timeStr = min > 0 ? `${min}分${sec}秒` : `${sec}秒`;
           let txt;
+          let interval = 5000;
+
           if (status === 'in_progress') {
-            txt = `正在生成视频... ${progress}% (${timeStr})`;
+            txt = `🎬 正在生成视频... ${progress}% (${timeStr})`;
+            interval = 3000;
           } else if (status === 'queued') {
             if (elapsed > 120 && !queuedWarningShown) {
               queuedWarningShown = true;
-              showToast('当前排队人数较多，请耐心等待...', 'info');
+              showToast('当前排队人数较多，请耐心等待', 'info');
             }
-            txt = `任务排队中... (${timeStr})`;
+            if (elapsed > 1800 && !longWaitShown) {
+              longWaitShown = true;
+              showToast('排队时间较长，可稍后再来查看', 'info');
+            }
+            txt = `⏳ 任务排队中... (${timeStr})`;
+            interval = 10000;
           } else {
-            txt = `任务处理中... (${timeStr})`;
+            txt = `⏳ 任务处理中... (${timeStr})`;
+            interval = 8000;
           }
           videoStatusText.textContent = txt;
+          await new Promise(r => setTimeout(r, interval));
         }
       } catch (err) {
         failCount++;
-        if (failCount >= 10) {
+        if (failCount >= maxFailures) {
           videoStatusText.textContent = '❌ ' + err.message;
           throw err;
         }
-        await new Promise(r => setTimeout(r, 2000));
+        const backoff = Math.min(30000, 2000 * Math.pow(1.5, failCount));
+        await new Promise(r => setTimeout(r, backoff));
       }
     }
 
