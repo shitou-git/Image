@@ -1860,21 +1860,31 @@
       if (steps) payload.num_inference_steps = parseInt(steps);
       if (seedVal) payload.seed = parseInt(seedVal);
 
-      videoStatusText.textContent = '正在创建视频任务...';
+      videoStatusText.textContent = '正在创建视频任务（首次可能需要1-2分钟）...';
+      let createStartTime = Date.now();
+      let createInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - createStartTime) / 1000);
+        const min = Math.floor(elapsed / 60);
+        const sec = elapsed % 60;
+        videoStatusText.textContent = `正在创建视频任务... (${min > 0 ? min + '分' : ''}${sec}秒)`;
+      }, 1000);
+
       const res = await fetch(VIDEO_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
+      clearInterval(createInterval);
       const text = await res.text();
       let data;
       try { data = JSON.parse(text); } catch (e) { throw new Error(text || '请求失败'); }
       if (!res.ok) throw new Error(data.error || data.message || '请求失败');
-      const video_id = data.video_id || data.id;
-      if (!video_id) throw new Error('未获取到视频任务 ID');
+      const task_id = data.task_id || data.id;
+      const video_id = data.video_id;
+      if (!task_id) throw new Error('未获取到视频任务 ID');
 
       videoStatusText.textContent = '任务已创建，正在生成...';
-      await pollVideo(video_id);
+      await pollVideo(task_id, video_id);
     } catch (e) {
       videoResultArea.classList.add('hidden');
       grid.classList.remove('hidden');
@@ -1885,13 +1895,14 @@
     }
   }
 
-  async function pollVideo(video_id) {
+  async function pollVideo(task_id, video_id) {
     let completed = false;
     let attempts = 0;
     let failCount = 0;
-    const maxAttempts = 300;
+    const maxAttempts = 600;
     const pollInterval = 3000;
     let firstPoll = true;
+    let pollStartTime = Date.now();
 
     while (!completed && attempts < maxAttempts) {
       attempts++;
@@ -1901,10 +1912,12 @@
       firstPoll = false;
 
       try {
+        const pollPayload = { action: 'poll', task_id, use_v1: true };
+        if (video_id) pollPayload.video_id = video_id;
         const res = await fetch(VIDEO_API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'poll', video_id, model_name: 'agnes-video-v2.0' }),
+          body: JSON.stringify(pollPayload),
         });
         const text = await res.text();
         let data;
@@ -1933,18 +1946,19 @@
         } else if (status === 'failed' || status === 'error') {
           throw new Error(data.error || '视频生成失败');
         } else {
-          const waitSeconds = Math.round(attempts * pollInterval / 1000);
-          const waitMin = Math.floor(waitSeconds / 60);
-          const waitSec = waitSeconds % 60;
-          const waitStr = waitMin > 0 ? `${waitMin}分${waitSec}秒` : `${waitSec}秒`;
-          const txt = status === 'in_progress' ? `正在生成视频... ${progress}% (${waitStr})`
-            : status === 'queued' ? `任务排队中... (${waitStr})`
-            : `任务处理中... (${waitStr})`;
+          const elapsed = Math.floor((Date.now() - pollStartTime) / 1000);
+          const min = Math.floor(elapsed / 60);
+          const sec = elapsed % 60;
+          const timeStr = min > 0 ? `${min}分${sec}秒` : `${sec}秒`;
+          const txt = status === 'in_progress' ? `正在生成视频... ${progress}% (${timeStr})`
+            : status === 'queued' ? `任务排队中... (${timeStr})`
+            : `任务处理中... (${timeStr})`;
           videoStatusText.textContent = txt;
         }
       } catch (err) {
         failCount++;
-        if (failCount >= 5) throw new Error(`轮询失败: ${err.message}`);
+        if (failCount >= 10) throw new Error(`轮询失败: ${err.message}`);
+        await new Promise(r => setTimeout(r, 2000));
       }
     }
 

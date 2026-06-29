@@ -1,11 +1,12 @@
 const VIDEO_CREATE_URL = 'https://apihub.agnes-ai.com/v1/videos';
 const VIDEO_POLL_URL = 'https://apihub.agnes-ai.com/agnesapi';
+const VIDEO_POLL_URL_V1 = 'https://apihub.agnes-ai.com/v1/videos';
 
-const CREATE_TIMEOUT_MS = 90000;
+const CREATE_TIMEOUT_MS = 120000;
 const POLL_TIMEOUT_MS = 30000;
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     if (request.method === 'GET') {
       return new Response('Agnes Video API Proxy is running.', {
         status: 200,
@@ -43,15 +44,25 @@ export default {
       }
 
       if (action === 'poll') {
-        const { video_id, model_name } = params;
-        if (!video_id) {
-          return new Response(JSON.stringify({ error: 'Missing video_id' }), {
+        const { video_id, task_id, model_name, use_v1 } = params;
+        const id = video_id || task_id;
+        if (!id) {
+          return new Response(JSON.stringify({ error: 'Missing video_id or task_id' }), {
             status: 400,
             headers: corsHeaders(),
           });
         }
-        let pollUrl = `${VIDEO_POLL_URL}?video_id=${encodeURIComponent(video_id)}`;
-        if (model_name) pollUrl += `&model_name=${encodeURIComponent(model_name)}`;
+
+        const tryV1 = use_v1 || !!task_id;
+
+        let pollUrl;
+        if (tryV1 && (task_id || id.startsWith('task_'))) {
+          pollUrl = `${VIDEO_POLL_URL_V1}/${encodeURIComponent(id)}`;
+        } else {
+          pollUrl = `${VIDEO_POLL_URL}?video_id=${encodeURIComponent(id)}`;
+          if (model_name) pollUrl += `&model_name=${encodeURIComponent(model_name)}`;
+        }
+
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), POLL_TIMEOUT_MS);
         const pollRes = await fetch(pollUrl, {
@@ -61,7 +72,30 @@ export default {
         const pollText = await pollRes.text();
         let pollData;
         try { pollData = JSON.parse(pollText); } catch (e) { pollData = { error: pollText }; }
+
         if (!pollRes.ok) {
+          if (!tryV1 && (pollRes.status === 404 || pollText.includes('not found'))) {
+            const taskId = params.task_id;
+            if (taskId) {
+              const v1Url = `${VIDEO_POLL_URL_V1}/${encodeURIComponent(taskId)}`;
+              const v1Controller = new AbortController();
+              const v1Timeout = setTimeout(() => v1Controller.abort(), POLL_TIMEOUT_MS);
+              try {
+                const v1Res = await fetch(v1Url, {
+                  headers: { 'Authorization': `Bearer ${apiKey}` },
+                  signal: v1Controller.signal,
+                }).finally(() => clearTimeout(v1Timeout));
+                if (v1Res.ok) {
+                  const v1Text = await v1Res.text();
+                  let v1Data;
+                  try { v1Data = JSON.parse(v1Text); } catch (e) { v1Data = { error: v1Text }; }
+                  return new Response(JSON.stringify(v1Data), {
+                    headers: corsHeaders(),
+                  });
+                }
+              } catch (e) {}
+            }
+          }
           const errMsg = pollData.error?.message || pollData.error || pollData.message || pollText;
           return new Response(JSON.stringify({ error: errMsg }), {
             status: pollRes.status,
