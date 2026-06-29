@@ -77,14 +77,15 @@ async function handleGenerate(request, env) {
 
     if (image && image.length > 0) {
       agnesBody.image = image;
+      agnesBody.extra_body.image = image;
     }
 
     if (negative_prompt) {
       agnesBody.negative_prompt = negative_prompt;
+      agnesBody.extra_body.negative_prompt = negative_prompt;
     }
 
     if (image_weight !== undefined && image_weight !== null) {
-      if (!agnesBody.extra_body) agnesBody.extra_body = {};
       agnesBody.extra_body.image_weight = image_weight;
     }
 

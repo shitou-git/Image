@@ -337,6 +337,31 @@
     color: var(--text-muted);
   }
 
+  .prompt-templates {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    font-size: 0.72rem;
+  }
+  .pt-label { color: var(--text-muted); }
+  .pt-btn {
+    padding: 3px 10px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--card);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.72rem;
+    transition: all 0.15s;
+  }
+  .pt-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-bg);
+  }
+
   /* ─── 快捷预设 ─── */
   .preset-section { margin-bottom: 14px; }
   .preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
@@ -1262,7 +1287,14 @@
 
       <div class="field" style="margin-top:8px;">
         <div class="label-row"><label for="i2iPrompt">编辑指令</label></div>
-        <textarea id="i2iPrompt" placeholder="描述如何编辑或变换这张图片，如：将此图片转换为赛博朋克风格，保留主体不变" maxlength="1000" rows="2" style="min-height:50px;"></textarea>
+        <textarea id="i2iPrompt" placeholder="例：把猫的毛发颜色改成白色，保留猫的姿态、表情、背景和整体构图不变" maxlength="1000" rows="2" style="min-height:50px;"></textarea>
+        <div class="prompt-templates">
+          <span class="pt-label">快速模板：</span>
+          <button class="pt-btn" data-tpl="把主体颜色改成{颜色}，保留原图的构图、姿态、表情、背景和光影效果不变">改颜色</button>
+          <button class="pt-btn" data-tpl="将图片转换为{风格}风格，保留原图的主体、构图和主要元素布局不变">换风格</button>
+          <button class="pt-btn" data-tpl="给图片添加{效果}效果，保留原图的主体和构图不变">加效果</button>
+          <button class="pt-btn" data-tpl="只改变{部位}的{属性}，其他所有内容完全保持不变">局部改</button>
+        </div>
       </div>
 
       <div class="field">
@@ -1642,6 +1674,17 @@
     imageWeightVal.textContent = imageWeight.value;
   });
 
+  // ── 提示词模板按钮 ──
+  document.querySelectorAll('.pt-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tpl = btn.getAttribute('data-tpl');
+      i2iPrompt.value = tpl;
+      i2iPrompt.focus();
+      const len = tpl.length;
+      i2iPrompt.setSelectionRange(0, len);
+    });
+  });
+
   // ── 通用 ──
   function getActiveImage() {
     const activeTab = imgSourceTabs.querySelector('.img-source-tab.active');
@@ -1824,12 +1867,16 @@
       const style = styleWordsI2i.value.trim();
       if (!p) { showToast('请输入编辑指令', 'error'); i2iPrompt.focus(); return; }
       if (style) p = p + '，' + style;
+      const weight = parseFloat(imageWeight.value);
+      if (weight >= 0.7 && !p.includes('保留') && !p.includes('不变') && !p.includes('保持')) {
+        p = p + '，保留原图的构图、主体姿态、背景和整体布局不变';
+      }
       prompt = p;
       size = sizeI2i.value;
       n = parseInt(nI2i.value);
       image = [img];
       negativePrompt = i2iNegativePrompt.value.trim();
-      imageWeightVal = parseFloat(imageWeight.value);
+      imageWeightVal = weight;
     }
 
     const btn = mode === 't2i' ? btnT2i : btnI2i;
@@ -1858,6 +1905,8 @@
     try {
       const body = { prompt, size, n };
       if (image) body.image = image;
+      if (negativePrompt) body.negative_prompt = negativePrompt;
+      if (imageWeightVal !== undefined) body.image_weight = imageWeightVal;
       if (negativePrompt) body.negative_prompt = negativePrompt;
       if (imageWeightVal !== undefined) body.image_weight = imageWeightVal;
 
@@ -2555,7 +2604,7 @@
       return;
     }
 
-    let prompt, size, n, image, styleText;
+    let prompt, size, n, image, styleText, negativePrompt, imageWeightVal;
 
     if (mode === 't2i') {
       let p = promptEl.value.trim();
@@ -2574,10 +2623,16 @@
       if (!p) { showToast('请输入编辑指令', 'error'); i2iPrompt.focus(); return; }
       styleText = style;
       if (style) p = p + '，' + style;
+      const weight = parseFloat(imageWeight.value);
+      if (weight >= 0.7 && !p.includes('保留') && !p.includes('不变') && !p.includes('保持')) {
+        p = p + '，保留原图的构图、主体姿态、背景和整体布局不变';
+      }
       prompt = p;
       size = sizeI2i.value;
       n = parseInt(nI2i.value);
       image = [img];
+      negativePrompt = i2iNegativePrompt.value.trim();
+      imageWeightVal = weight;
     }
 
     const btn = mode === 't2i' ? btnT2i : btnI2i;
@@ -2612,6 +2667,8 @@
     try {
       const body = { prompt, size, n };
       if (image) body.image = image;
+      if (negativePrompt) body.negative_prompt = negativePrompt;
+      if (imageWeightVal !== undefined) body.image_weight = imageWeightVal;
 
       const res = await fetch(API_URL, {
         method: 'POST',
