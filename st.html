@@ -2493,7 +2493,7 @@
     try {
       const data = await listImages(1, 50, false, true);
       const storageType = data.storage === 'd1' ? 'D1数据库' : (data.storage === 'kv' ? 'KV存储' : '');
-      storageInfo.textContent = data.storage ? ('存储: ' + storageType + ' · 历史记录保留最近10张') : '';
+      storageInfo.textContent = data.storage ? ('温馨提示，历史记录只保留最近10张，如需长久保留请保存图片') : '';
       const items = data.items || [];
       historyCache = items;
       if (items.length === 0) {
