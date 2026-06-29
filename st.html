@@ -2919,20 +2919,41 @@
               return;
             }
             let imgId = savedItemIds[idx];
+            let saveSuccess = false;
+            if (imgId) {
+              try {
+                await updateImage(imgId, true);
+                saveSuccess = true;
+              } catch (updErr) {
+                if (updErr.message === 'Image not found') {
+                  console.warn('图片已不存在，重新保存...');
+                  imgId = null;
+                } else {
+                  throw updErr;
+                }
+              }
+            }
             if (!imgId) {
               const saveRes = await saveImage(prompt, size, styleText || '', b64, 'agnes-image-2.1-flash');
               imgId = saveRes?.id;
+              if (imgId) {
+                await updateImage(imgId, true);
+                saveSuccess = true;
+                savedItemIds[idx] = imgId;
+              }
             }
-            if (imgId) {
-              await updateImage(imgId, true);
+            if (saveSuccess) {
+              saved = true;
+              saveBtn.style.backgroundColor = 'rgba(59,130,246,0.6)';
+              saveBtn.querySelector('svg').setAttribute('fill', 'currentColor');
+              saveBtn.title = '已保存';
+              showToast('已永久保存', 'success');
+              loadHistory(true, true);
+              loadFavorites(true, true);
             }
-            saved = true;
-            saveBtn.style.backgroundColor = 'rgba(59,130,246,0.6)';
-            saveBtn.querySelector('svg').setAttribute('fill', 'currentColor');
-            saveBtn.title = '已保存';
-            showToast('已永久保存', 'success');
           } catch (err) {
-            showToast(err.message, 'error');
+            console.error('保存失败:', err);
+            showToast(err.message || '保存失败', 'error');
           }
         });
         actions.appendChild(saveBtn);
