@@ -2432,6 +2432,10 @@
 
   // ── 标签切换 ──
   let currentRTab = 'generated';
+  let historyCache = null;
+  let favoritesCache = null;
+  let historyLoading = false;
+  let favoritesLoading = false;
   const resultTabs = document.querySelectorAll('.result-tab');
   const historyGrid = document.getElementById('historyGrid');
   const favGrid = document.getElementById('favGrid');
@@ -2468,7 +2472,22 @@
   });
 
   // ── 加载历史记录 ──
-  async function loadHistory() {
+  async function loadHistory(force = false) {
+    if (!force && historyCache) {
+      const items = historyCache;
+      historyGrid.classList.remove('hidden');
+      if (items.length === 0) {
+        placeholder.style.display = '';
+        placeholderText.textContent = '暂无历史记录';
+        historyGrid.classList.add('hidden');
+      } else {
+        placeholder.style.display = 'none';
+        renderHistoryGrid(historyGrid, items);
+      }
+      return;
+    }
+    if (historyLoading) return;
+    historyLoading = true;
     historyGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted);">加载中...</div>';
     historyGrid.classList.remove('hidden');
     try {
@@ -2476,6 +2495,7 @@
       const storageType = data.storage === 'd1' ? 'D1数据库' : (data.storage === 'kv' ? 'KV存储' : '');
       storageInfo.textContent = data.storage ? ('存储: ' + storageType + ' · 历史记录保留最近10张') : '';
       const items = data.items || [];
+      historyCache = items;
       if (items.length === 0) {
         placeholder.style.display = '';
         placeholderText.textContent = '暂无历史记录';
@@ -2489,16 +2509,34 @@
       placeholder.style.display = '';
       placeholderText.textContent = '加载失败: ' + e.message;
       historyGrid.classList.add('hidden');
+    } finally {
+      historyLoading = false;
     }
   }
 
   // ── 加载保存 ──
-  async function loadFavorites() {
+  async function loadFavorites(force = false) {
+    if (!force && favoritesCache) {
+      const items = favoritesCache;
+      favGrid.classList.remove('hidden');
+      if (items.length === 0) {
+        placeholder.style.display = '';
+        placeholderText.textContent = '暂无保存的图片';
+        favGrid.classList.add('hidden');
+      } else {
+        placeholder.style.display = 'none';
+        renderHistoryGrid(favGrid, items, true);
+      }
+      return;
+    }
+    if (favoritesLoading) return;
+    favoritesLoading = true;
     favGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted);">加载中...</div>';
     favGrid.classList.remove('hidden');
     try {
       const data = await listImages(1, 50, true, true);
       const items = data.items || [];
+      favoritesCache = items;
       if (items.length === 0) {
         placeholder.style.display = '';
         placeholderText.textContent = '暂无保存的图片';
@@ -2511,6 +2549,8 @@
       placeholder.style.display = '';
       placeholderText.textContent = '加载失败: ' + e.message;
       favGrid.classList.add('hidden');
+    } finally {
+      favoritesLoading = false;
     }
   }
 
@@ -2580,9 +2620,9 @@
           const newFav = !isFav;
           await updateImage(item.id, newFav);
           if (isFavView) {
-            loadFavorites();
+            loadFavorites(true);
           } else {
-            loadHistory();
+            loadHistory(true);
           }
           showToast(newFav ? '已保存' : '已取消保存', 'success');
         } catch (err) {
@@ -2601,9 +2641,9 @@
         try {
           await deleteImage(item.id);
           if (isFavView) {
-            loadFavorites();
+            loadFavorites(true);
           } else {
-            loadHistory();
+            loadHistory(true);
           }
           showToast('已删除', 'success');
         } catch (err) {
@@ -2737,6 +2777,10 @@
                 savedItemIds[i] = res.id;
               }
             }
+          }
+          // 自动保存完成后刷新历史记录缓存
+          if (historyCache) {
+            loadHistory(true);
           }
         } catch (e) {
           console.error('自动保存失败:', e);
@@ -2909,6 +2953,11 @@
       currentUser = data;
       setAuthUser(data);
       updateUserUI(data);
+      // 预加载历史记录和保存的图片
+      setTimeout(() => {
+        loadHistory();
+        loadFavorites();
+      }, 500);
     } catch (e) {
       setAuthToken('');
       setAuthUser(null);
@@ -2957,6 +3006,8 @@
       currentUser = data.user;
       updateUserUI(data.user);
       closeAuthModal();
+      historyCache = null;
+      favoritesCache = null;
       showToast('登录成功', 'success');
       loginEmail.value = '';
       loginPwd.value = '';
