@@ -267,6 +267,7 @@ async function handleGenerate(request, env) {
     }
 
     // 自动保存到历史记录（调用 chat-app-db worker）
+    const db = env && env.DB ? env.DB : null;
     const userId = await getUserId(request, db);
     const headers = { 'Content-Type': 'application/json' };
     const deviceId = request.headers ? request.headers.get('X-Device-Id') : null;
