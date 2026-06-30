@@ -175,7 +175,7 @@ async function handleGenerate(request, env) {
         agnesBody.extra_body.image_weight = image_weight;
       }
     } else {
-      agnesBody.return_base64 = true;
+      agnesBody.response_format = 'b64_json';
     }
 
     const reqs = Array.from({ length: count }, () =>

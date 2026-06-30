@@ -1352,7 +1352,7 @@
     </div>
 
     <div class="left-footer">
-      @Stone || Powered by Sapiens AI · v<span id="versionText">1.4.2</span>
+      @Stone || Powered by Sapiens AI · v<span id="versionText">1.4.3</span>
     </div>
   </div>
 
@@ -1389,7 +1389,7 @@
   </div>
 
   <div class="global-footer">
-    @Stone || Powered by Sapiens AI · v1.4.2
+    @Stone || Powered by Sapiens AI · v1.4.3
   </div>
 </div>
 
@@ -1451,7 +1451,7 @@
   const API_URL = 'https://lmage.chatlz.dpdns.org';
   const VIDEO_API_URL = 'https://video.chatlz.dpdns.org';
   const AUTH_API_URL = 'https://chat-app-db.chatlz.dpdns.org';
-  const APP_VERSION = '1.4.2';
+  const APP_VERSION = '1.4.3';
 
   // ── DOM refs ──
   const modeTabs = document.getElementById('modeTabs');
@@ -2361,6 +2361,18 @@
     };
   }
 
+  // ── URL转Base64 ──
+  async function urlToBase64(url) {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
   // ── 保存图片 ──
   async function saveImage(prompt, size, style, imageB64, model) {
     try {
@@ -2800,6 +2812,7 @@
       items.slice(0, n).forEach(item => {
         let url = item.url;
         if (!url && item.b64_json) url = 'data:image/png;base64,' + item.b64_json;
+        if (!url && item.base64) url = 'data:image/png;base64,' + item.base64;
         if (url) {
           allUrls.push(url);
           savedItems.push({ ...item, url });
@@ -2812,8 +2825,16 @@
           for (let i = 0; i < savedItems.length; i++) {
             const item = savedItems[i];
             let b64 = item.b64_json;
+            if (!b64 && item.base64) b64 = item.base64;
             if (!b64 && item.url && item.url.startsWith('data:image')) {
               b64 = item.url.split(',')[1];
+            }
+            if (!b64 && item.url && !item.url.startsWith('data:image')) {
+              try {
+                b64 = await urlToBase64(item.url);
+              } catch (err) {
+                console.error('下载图片转base64失败:', err);
+              }
             }
             if (b64) {
               const res = await saveImage(prompt, size, styleText || '', b64, 'agnes-image-2.1-flash');
@@ -2822,8 +2843,10 @@
               }
             }
           }
-          // 自动保存完成后静默刷新历史记录缓存
           loadHistory(true, true);
+          if (currentRTab === 'history') {
+            loadHistory(true);
+          }
         } catch (e) {
           console.error('自动保存失败:', e);
         }
@@ -2864,8 +2887,18 @@
           if (saved) return;
           try {
             let b64 = item.b64_json;
+            if (!b64 && item.base64) b64 = item.base64;
             if (!b64 && url.startsWith('data:image')) {
               b64 = url.split(',')[1];
+            }
+            if (!b64 && !url.startsWith('data:image')) {
+              showToast('正在准备图片数据...', 'info');
+              try {
+                b64 = await urlToBase64(url);
+              } catch (err) {
+                showToast('下载图片失败: ' + err.message, 'error');
+                return;
+              }
             }
             if (!b64) {
               showToast('无法保存：缺少图片数据', 'error');
@@ -2884,6 +2917,12 @@
             saveBtn.querySelector('svg').setAttribute('fill', 'currentColor');
             saveBtn.title = '已保存';
             showToast('已永久保存', 'success');
+            const isOnHistoryTab = currentRTab === 'history';
+            const isOnFavTab = currentRTab === 'favorites';
+            if (isOnHistoryTab) loadHistory(true);
+            else loadHistory(true, true);
+            if (isOnFavTab) loadFavorites(true);
+            else loadFavorites(true, true);
           } catch (err) {
             showToast(err.message, 'error');
           }
