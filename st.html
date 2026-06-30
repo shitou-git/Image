@@ -1451,7 +1451,7 @@
 </div>
 
 <script>
-  const APP_VERSION = '1.2.6';
+  const APP_VERSION = '1.2.7';
   const API_URL = 'https://chat-app-db.chatlz.dpdns.org';
   const IMAGE_API_URL = 'https://lmage.chatlz.dpdns.org';
   const VIDEO_API_URL = 'https://video.chatlz.dpdns.org';
@@ -2851,40 +2851,13 @@
         }
       });
 
-      // 自动保存到历史记录（后台静默执行）
-      (async () => {
-        try {
-          for (let i = 0; i < savedItems.length; i++) {
-            const item = savedItems[i];
-            let b64 = item.b64_json;
-            if (!b64 && item.url && item.url.startsWith('data:image')) {
-              b64 = item.url.split(',')[1];
-            }
-            if (!b64 && item.url && !item.url.startsWith('data:image')) {
-              try {
-                b64 = await urlToBase64(item.url);
-              } catch (e) {
-                console.error('下载图片转base64失败:', e);
-                continue;
-              }
-            }
-            if (b64) {
-              const res = await saveImage(prompt, size, styleText || '', b64, 'agnes-image-2.1-flash');
-              if (res && res.id) {
-                savedItemIds[i] = res.id;
-              }
-            }
-          }
-          // 自动保存完成后刷新历史记录缓存
-          const isOnHistoryTab = currentRTab === 'history';
-          const isOnFavTab = currentRTab === 'favorites';
-          loadHistory(true, !isOnHistoryTab && !isOnFavTab);
-          if (isOnFavTab) loadFavorites(true);
-          else loadFavorites(true, true);
-        } catch (e) {
-          console.error('自动保存失败:', e);
-        }
-      })();
+      // 注意：现在 lmage worker 会在生成后自动保存到历史记录
+      // 这里只需要刷新历史记录缓存即可
+      const isOnHistoryTab = currentRTab === 'history';
+      const isOnFavTab = currentRTab === 'favorites';
+      loadHistory(true, !isOnHistoryTab && !isOnFavTab);
+      if (isOnFavTab) loadFavorites(true);
+      else loadFavorites(true, true);
 
       savedItems.forEach((item, idx) => {
         let url = '';

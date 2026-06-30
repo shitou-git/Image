@@ -2,6 +2,7 @@
 // 安全修复: 图像生成 Worker
 // ========================================================================
 const AGNES_API_URL = 'https://apihub.agnes-ai.com/v1/images/generations';
+const CHAT_APP_DB_URL = 'https://chat-app-db.chatlz.dpdns.org';  // 图片保存服务
 const KV_PREFIX = 'img:';
 const KV_INDEX = 'img_index';
 const KV_RATE_PREFIX = 'rate:';
@@ -262,6 +263,39 @@ async function handleGenerate(request, env) {
         }));
       } catch (e) {
         console.error('Image download batch error:', e);
+      }
+    }
+
+    // 自动保存到历史记录（调用 chat-app-db worker）
+    const userId = await getUserId(request, db);
+    const headers = { 'Content-Type': 'application/json' };
+    const deviceId = request.headers ? request.headers.get('X-Device-Id') : null;
+    if (deviceId) headers['X-Device-Id'] = deviceId;
+    else {
+      const authHeader = request.headers ? request.headers.get('Authorization') : null;
+      if (authHeader) headers['Authorization'] = authHeader;
+    }
+
+    for (const item of merged.data) {
+      if (item.b64_json) {
+        try {
+          const saveRes = await fetch(CHAT_APP_DB_URL + '/api/images', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              prompt: prompt,
+              size: size,
+              style: '',
+              image_b64: item.b64_json,
+              model: 'agnes-image-2.1-flash'
+            })
+          });
+          if (saveRes.ok) {
+            console.log('Auto-saved to history:', await saveRes.json());
+          }
+        } catch (e) {
+          console.error('Auto-save error:', e);
+        }
       }
     }
 
