@@ -1451,7 +1451,7 @@
 </div>
 
 <script>
-  const APP_VERSION = '1.2.7';
+  const APP_VERSION = '1.2.8';
   const API_URL = 'https://chat-app-db.chatlz.dpdns.org';
   const IMAGE_API_URL = 'https://lmage.chatlz.dpdns.org';
   const VIDEO_API_URL = 'https://video.chatlz.dpdns.org';
@@ -2823,7 +2823,7 @@
 
       const res = await fetch(IMAGE_API_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: apiHeaders(),
         body: JSON.stringify(body),
         signal: generateAbortController.signal,
       });
