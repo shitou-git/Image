@@ -245,6 +245,32 @@ async function requireAuth(db, request) {
   return { user, error: null };
 }
 
+// ── 获取用户ID（支持设备ID认证）─
+async function getUserIdFromRequest(db, request) {
+  const authHeader = request && request.headers ? request.headers.get('Authorization') : null;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+    // 如果有 D1，查询 sessions 表获取真实 user_id
+    if (db) {
+      try {
+        const session = await db.prepare(
+          'SELECT user_id FROM sessions WHERE id = ?1 AND expires_at > ?2'
+        ).bind(token, nowTs()).first();
+        if (session && session.user_id) {
+          return session.user_id;
+        }
+      } catch (e) {
+        console.error('Session lookup error:', e);
+      }
+    }
+    // D1 不可用时回退到 token 本身
+    return token;
+  }
+  const deviceId = request && request.headers ? request.headers.get('X-Device-Id') : null;
+  if (deviceId) return 'dev:' + deviceId;
+  return 'public';
+}
+
 async function handleRegister(db, body, request) {
   const { email, password, nickname } = body || {};
   if (!email || !password) {
@@ -466,7 +492,7 @@ async function handleDeleteMessage(db, sessionId, messageId, request) {
 }
 
 // ── 图片生成历史 ──
-async function handleSaveImage(db, user, body, request) {
+async function handleSaveImage(db, userId, body, request) {
   const { prompt, size, style, image_b64, model } = body || {};
   if (!prompt || !image_b64) {
     return jsonResponse({ error: '缺少必填字段: prompt, image_b64' }, 400, request);
@@ -478,12 +504,12 @@ async function handleSaveImage(db, user, body, request) {
   await db.prepare(`
     INSERT INTO generated_images (id, user_id, prompt, size, style, image_b64, model, created_at)
     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
-  `).bind(id, user.id, prompt, size || '', style || '', image_b64, model || '', ts).run();
+  `).bind(id, userId, prompt, size || '', style || '', image_b64, model || '', ts).run();
 
   return jsonResponse({ id, created_at: ts }, 200, request);
 }
 
-async function handleListImages(db, user, url, request) {
+async function handleListImages(db, userId, url, request) {
   const page = parseInt(url.searchParams.get('page') || '1', 10);
   const limit = parseInt(url.searchParams.get('limit') || '20', 10);
   const favorite = url.searchParams.get('favorite');
@@ -500,7 +526,7 @@ async function handleListImages(db, user, url, request) {
     FROM generated_images
     WHERE user_id = ?1
   `;
-  const params = [user.id];
+  const params = [userId];
 
   if (favorite === '1') {
     countSql += ' AND is_favorite = 1';
@@ -521,28 +547,28 @@ async function handleListImages(db, user, url, request) {
   }, 200, request);
 }
 
-async function handleGetImage(db, user, imageId, request) {
+async function handleGetImage(db, userId, imageId, request) {
   const img = await db.prepare(
     'SELECT * FROM generated_images WHERE id = ?1 AND user_id = ?2'
-  ).bind(imageId, user.id).first();
+  ).bind(imageId, userId).first();
   if (!img) return jsonResponse({ error: '图片不存在' }, 404, request);
   return jsonResponse(img, 200, request);
 }
 
-async function handleDeleteImage(db, user, imageId, request) {
+async function handleDeleteImage(db, userId, imageId, request) {
   const img = await db.prepare(
     'SELECT id FROM generated_images WHERE id = ?1 AND user_id = ?2'
-  ).bind(imageId, user.id).first();
+  ).bind(imageId, userId).first();
   if (!img) return jsonResponse({ error: '图片不存在' }, 404, request);
 
   await db.prepare('DELETE FROM generated_images WHERE id = ?1').bind(imageId).run();
   return jsonResponse({ ok: true }, 200, request);
 }
 
-async function handleUpdateImage(db, user, imageId, body, request) {
+async function handleUpdateImage(db, userId, imageId, body, request) {
   const img = await db.prepare(
     'SELECT id FROM generated_images WHERE id = ?1 AND user_id = ?2'
-  ).bind(imageId, user.id).first();
+  ).bind(imageId, userId).first();
   if (!img) return jsonResponse({ error: '图片不存在' }, 404, request);
 
   const { is_favorite } = body || {};
@@ -554,6 +580,36 @@ async function handleUpdateImage(db, user, imageId, body, request) {
   }
 
   return jsonResponse({ ok: true }, 200, request);
+}
+
+// ── 迁移历史记录到登录用户 ─
+async function handleMigrateImages(db, request) {
+  // 必须是已登录用户
+  const authHeader = request && request.headers ? request.headers.get('Authorization') : null;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return jsonResponse({ error: 'Unauthorized' }, 401, request);
+  }
+  const token = authHeader.substring(7);
+  const targetUserId = await getUserIdFromRequest(db, request);
+  if (!targetUserId || targetUserId === 'public') {
+    return jsonResponse({ error: 'Invalid session' }, 401, request);
+  }
+  const deviceId = request && request.headers ? request.headers.get('X-Device-Id') : null;
+  if (!deviceId) {
+    return jsonResponse({ error: 'Missing X-Device-Id' }, 400, request);
+  }
+  const sourceUserId = 'dev:' + deviceId;
+
+  try {
+    // 把来源 user_id 的所有记录改成目标 user_id
+    const result = await db.prepare(
+      'UPDATE generated_images SET user_id = ?1 WHERE user_id = ?2 AND user_id != ?1'
+    ).bind(targetUserId, sourceUserId).run();
+    return jsonResponse({ ok: true, migrated: result.meta?.changes || 0, user_id: targetUserId }, 200, request);
+  } catch (e) {
+    console.error('Migrate error:', e);
+    return jsonResponse({ error: 'Migrate failed: ' + e.message }, 500, request);
+  }
 }
 
 async function handleChatProxy(env, body, request) {
@@ -650,34 +706,33 @@ export default {
         return handleChatProxy(env, body, request);
       }
 
+      // ── 图片 API（支持设备ID认证）─
       if (path === '/api/images' && request.method === 'GET') {
-        const auth = await requireAuth(db, request);
-        if (auth.error) return jsonResponse(auth.error, 401, request);
-        return handleListImages(db, auth.user, url, request);
+        const userId = await getUserIdFromRequest(db, request);
+        return handleListImages(db, userId, url, request);
       }
       if (path === '/api/images' && request.method === 'POST') {
-        const auth = await requireAuth(db, request);
-        if (auth.error) return jsonResponse(auth.error, 401, request);
-        return handleSaveImage(db, auth.user, body, request);
+        const userId = await getUserIdFromRequest(db, request);
+        return handleSaveImage(db, userId, body, request);
       }
       const imgMatch = path.match(/^\/api\/images\/([^\/]+)$/);
       if (imgMatch) {
         const iid = imgMatch[1];
+        const userId = await getUserIdFromRequest(db, request);
         if (request.method === 'GET') {
-          const auth = await requireAuth(db, request);
-          if (auth.error) return jsonResponse(auth.error, 401, request);
-          return handleGetImage(db, auth.user, iid, request);
+          return handleGetImage(db, userId, iid, request);
         }
         if (request.method === 'DELETE') {
-          const auth = await requireAuth(db, request);
-          if (auth.error) return jsonResponse(auth.error, 401, request);
-          return handleDeleteImage(db, auth.user, iid, request);
+          return handleDeleteImage(db, userId, iid, request);
         }
         if (request.method === 'PUT') {
-          const auth = await requireAuth(db, request);
-          if (auth.error) return jsonResponse(auth.error, 401, request);
-          return handleUpdateImage(db, auth.user, iid, body, request);
+          return handleUpdateImage(db, userId, iid, body, request);
         }
+      }
+
+      // ── 迁移历史记录到登录用户 ─
+      if (path === '/api/images/migrate' && request.method === 'POST') {
+        return handleMigrateImages(db, request);
       }
 
       if (path === '/' || path === '/health') {

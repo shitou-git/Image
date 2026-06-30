@@ -1452,8 +1452,9 @@
 </div>
 
 <script>
-  const APP_VERSION = '1.2.3';
-  const API_URL = 'https://lmage.chatlz.dpdns.org';
+  const APP_VERSION = '1.2.4';
+  const API_URL = 'https://chat-app-db.chatlz.dpdns.org';
+  const IMAGE_API_URL = 'https://lmage.chatlz.dpdns.org';
   const VIDEO_API_URL = 'https://video.chatlz.dpdns.org';
   const AUTH_API_URL = 'https://chat-app-db.chatlz.dpdns.org';
 
@@ -1935,7 +1936,7 @@
       if (negativePrompt) body.negative_prompt = negativePrompt;
       if (imageWeightVal !== undefined) body.image_weight = imageWeightVal;
 
-      const res = await fetch(API_URL, {
+      const res = await fetch(IMAGE_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -2798,7 +2799,7 @@
       if (negativePrompt) body.negative_prompt = negativePrompt;
       if (imageWeightVal !== undefined) body.image_weight = imageWeightVal;
 
-      const res = await fetch(API_URL, {
+      const res = await fetch(IMAGE_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
