@@ -494,7 +494,9 @@ async function handleDeleteMessage(db, sessionId, messageId, request) {
 // ── 图片生成历史 ──
 async function handleSaveImage(db, userId, body, request) {
   const { prompt, size, style, image_b64, model } = body || {};
+  console.log('handleSaveImage: userId=', userId, 'prompt=', prompt?.substring(0, 30), 'size=', size, 'image_b64长度=', image_b64?.length);
   if (!prompt || !image_b64) {
+    console.log('handleSaveImage: 缺少必填字段');
     return jsonResponse({ error: '缺少必填字段: prompt, image_b64' }, 400, request);
   }
 
@@ -503,26 +505,32 @@ async function handleSaveImage(db, userId, body, request) {
     const ts = nowTs();
 
     await db.prepare(`
-      INSERT INTO generated_images (id, user_id, prompt, size, style, image_b64, model, created_at)
-      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+      INSERT INTO generated_images (id, user_id, prompt, size, style, image_b64, model, created_at, is_favorite)
+      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 0)
     `).bind(id, userId, prompt, size || '', style || '', image_b64, model || '', ts).run();
+    console.log('handleSaveImage: 插入成功, id=', id);
 
     const HISTORY_LIMIT = 10;
     const countResult = await db.prepare(
       'SELECT COUNT(*) as total FROM generated_images WHERE user_id = ?1 AND is_favorite = 0'
     ).bind(userId).first();
     const total = countResult?.total || 0;
+    console.log('handleSaveImage: 历史记录总数=', total, '限制=', HISTORY_LIMIT);
     if (total > HISTORY_LIMIT) {
       const excess = total - HISTORY_LIMIT;
+      console.log('handleSaveImage: 需要清理', excess, '条旧记录');
       const allOldIds = await db.prepare(
         'SELECT id FROM generated_images WHERE user_id = ?1 AND is_favorite = 0 ORDER BY created_at ASC'
       ).bind(userId).all();
       const toDelete = (allOldIds.results || []).slice(0, excess);
+      console.log('handleSaveImage: 准备删除', toDelete.length, '条记录');
       for (const row of toDelete) {
         await db.prepare('DELETE FROM generated_images WHERE id = ?1').bind(row.id).run();
       }
+      console.log('handleSaveImage: 清理完成');
     }
 
+    console.log('handleSaveImage: 返回成功, id=', id);
     return jsonResponse({ id, created_at: ts }, 200, request);
   } catch (e) {
     console.error('handleSaveImage error:', e);
@@ -536,6 +544,8 @@ async function handleListImages(db, userId, url, request) {
   const favorite = url.searchParams.get('favorite');
   const withImage = url.searchParams.get('with_image') === '1';
   const offset = (page - 1) * limit;
+
+  console.log('handleListImages: userId=', userId, 'page=', page, 'limit=', limit, 'favorite=', favorite, 'withImage=', withImage);
 
   const selectFields = withImage
     ? 'id, prompt, size, style, is_favorite, model, created_at, image_b64'
@@ -562,6 +572,8 @@ async function handleListImages(db, userId, url, request) {
 
   const countResult = await db.prepare(countSql).bind(...params.slice(0, 1)).first();
   const listResult = await db.prepare(listSql).bind(...params).all();
+
+  console.log('handleListImages: total=', countResult?.total, '返回条数=', listResult?.results?.length);
 
   return jsonResponse({
     items: listResult.results || [],
