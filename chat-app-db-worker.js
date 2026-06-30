@@ -850,6 +850,20 @@ async function handleAdminAPI(db, path, method, body, request) {
     return jsonResponse({ ok: true }, 200, request);
   }
 
+  // 管理员重置用户密码
+  const userResetPwdMatch = path.match(/^\/api\/admin\/users\/([^\/]+)\/reset-password$/);
+  if (userResetPwdMatch && method === 'POST') {
+    const targetUserId = userResetPwdMatch[1];
+    const newPassword = body && body.new_password;
+    if (!newPassword || newPassword.length < 6) {
+      return jsonResponse({ error: '新密码至少需要6个字符' }, 400, request);
+    }
+    const pwdHash = await hashPassword(newPassword);
+    await db.prepare('UPDATE users SET password_hash = ?1, updated_at = ?2 WHERE id = ?3')
+      .bind(pwdHash, nowTs(), targetUserId).run();
+    return jsonResponse({ ok: true }, 200, request);
+  }
+
   if (path === '/api/admin/sessions' && method === 'GET') {
     let sql = `
       SELECT cs.*, u.email, 
@@ -1388,6 +1402,18 @@ tr:hover { background: #334155; }
   </div>
 </div>
 
+<div class="modal-overlay" id="resetPwdModal">
+  <div class="modal">
+    <h3>🔑 重置用户密码</h3>
+    <p id="resetPwdUser" style="margin-bottom:10px;color:#666;"></p>
+    <input type="password" class="modal-input" id="resetPwdInput" placeholder="输入新密码（至少6位）" minlength="6">
+    <div class="modal-btns">
+      <button class="btn btn-primary" onclick="doResetPwd()">确认重置</button>
+      <button class="btn" onclick="closeResetPwdModal()">取消</button>
+    </div>
+  </div>
+</div>
+
 <script>
 var adminToken = localStorage.getItem('admin_token') || '';
 var currentFilter = { userId: '', startDate: '', endDate: '' };
@@ -1465,6 +1491,48 @@ function adminLogin() {
 document.getElementById('adminPwd').addEventListener('keydown', function(e) {
   if (e.key === 'Enter') adminLogin();
 });
+
+var resetPwdTargetUserId = '';
+var resetPwdTargetEmail = '';
+
+function openResetPwdModal(userId, email) {
+  resetPwdTargetUserId = userId;
+  resetPwdTargetEmail = email;
+  document.getElementById('resetPwdUser').textContent = '将为 ' + email + ' 重置密码';
+  document.getElementById('resetPwdInput').value = '';
+  document.getElementById('resetPwdModal').classList.add('show');
+  document.getElementById('resetPwdInput').focus();
+}
+
+function closeResetPwdModal() {
+  document.getElementById('resetPwdModal').classList.remove('show');
+  resetPwdTargetUserId = '';
+  resetPwdTargetEmail = '';
+}
+
+function doResetPwd() {
+  var newPwd = document.getElementById('resetPwdInput').value;
+  if (!newPwd || newPwd.length < 6) {
+    alert('新密码至少需要6个字符');
+    return;
+  }
+  fetch('/api/admin/users/' + resetPwdTargetUserId + '/reset-password', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + adminToken
+    },
+    body: JSON.stringify({ new_password: newPwd })
+  }).then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.ok) {
+        alert('密码重置成功！新密码：' + newPwd);
+        closeResetPwdModal();
+      } else {
+        alert(data.error || '重置失败');
+      }
+    });
+}
 
 function loadUserList() {
   apiGet('/users').then(function(data) {
@@ -1575,7 +1643,7 @@ function loadUsers() {
         '<td><span class="email-link" data-action="view-user" title="查看该用户的聊天记录">' + u.email + '</span></td>' +
         '<td>' + (u.nickname || '-') + '</td>' +
         '<td>' + formatTime(u.created_at) + '</td>' +
-        '<td><button class="btn btn-danger" data-action="delete-user">删除</button></td>' +
+        '<td><button class="btn btn-primary btn-sm" data-action="reset-pwd" data-user-id="' + u.id + '" data-email="' + u.email + '">重置密码</button> <button class="btn btn-danger btn-sm" data-action="delete-user">删除</button></td>' +
         '</tr>';
     });
     html += '</tbody></table>';
@@ -1593,6 +1661,14 @@ function loadUsers() {
         var tr = el.closest('tr');
         var uid = tr.getAttribute('data-user-id');
         deleteUser(uid);
+      });
+    });
+
+    el.querySelectorAll('[data-action="reset-pwd"]').forEach(function(el) {
+      el.addEventListener('click', function() {
+        var userId = el.getAttribute('data-user-id');
+        var email = el.getAttribute('data-email');
+        openResetPwdModal(userId, email);
       });
     });
   }).catch(function(e) {
