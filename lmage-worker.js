@@ -279,6 +279,7 @@ async function handleGenerate(request, env) {
     else if (authHeader) headers['Authorization'] = authHeader;
     console.log('Auto-save: 保存请求头:', JSON.stringify(headers));
 
+    let itemIdx = 0;
     for (const item of merged.data) {
       if (item.b64_json) {
         console.log('Auto-save: 准备保存图片, b64长度:', item.b64_json.length);
@@ -296,8 +297,12 @@ async function handleGenerate(request, env) {
           });
           const saveData = await saveRes.json();
           console.log('Auto-save: 保存结果:', JSON.stringify(saveData));
-          if (saveRes.ok) {
+          if (saveRes.ok && saveData.id) {
             console.log('Auto-saved to history:', saveData);
+            // 把保存后的ID附加到返回数据中，方便前端使用
+            item.id = saveData.id;
+            item.created_at = saveData.created_at;
+            item.is_favorite = 0;
           } else {
             console.error('Auto-save failed:', saveData);
           }
@@ -307,6 +312,7 @@ async function handleGenerate(request, env) {
       } else {
         console.log('Auto-save: 跳过, 无b64_json');
       }
+      itemIdx++;
     }
     console.log('=== 自动保存完成 ===');
 
