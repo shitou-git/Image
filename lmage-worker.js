@@ -436,6 +436,9 @@ async function handleListImages(db, kv, url, request) {
       if (favorite === '1') {
         countSql += ' AND is_favorite = 1';
         listSql += ' AND is_favorite = 1';
+      } else {
+        countSql += ' AND is_favorite = 0';
+        listSql += ' AND is_favorite = 0';
       }
 
       listSql += ' ORDER BY created_at DESC LIMIT ?' + (params.length + 1) + ' OFFSET ?' + (params.length + 2);
@@ -467,6 +470,8 @@ async function handleListImages(db, kv, url, request) {
 
       if (favorite === '1') {
         index = index.filter(i => i.is_favorite);
+      } else {
+        index = index.filter(i => !i.is_favorite);
       }
 
       const total = index.length;

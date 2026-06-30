@@ -1451,7 +1451,7 @@
 </div>
 
 <script>
-  const APP_VERSION = '1.2.5';
+  const APP_VERSION = '1.2.6';
   const API_URL = 'https://chat-app-db.chatlz.dpdns.org';
   const IMAGE_API_URL = 'https://lmage.chatlz.dpdns.org';
   const VIDEO_API_URL = 'https://video.chatlz.dpdns.org';
@@ -2376,6 +2376,27 @@
     };
   }
 
+  // ── URL转Base64 ──
+  async function urlToBase64(url) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('下载失败: ' + res.status);
+      const blob = await res.blob();
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const b64 = reader.result.split(',')[1];
+          resolve(b64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (e) {
+      console.error('urlToBase64 error:', e);
+      throw e;
+    }
+  }
+
   // ── 保存图片 ──
   async function saveImage(prompt, size, style, imageB64, model) {
     try {
@@ -2839,6 +2860,14 @@
             if (!b64 && item.url && item.url.startsWith('data:image')) {
               b64 = item.url.split(',')[1];
             }
+            if (!b64 && item.url && !item.url.startsWith('data:image')) {
+              try {
+                b64 = await urlToBase64(item.url);
+              } catch (e) {
+                console.error('下载图片转base64失败:', e);
+                continue;
+              }
+            }
             if (b64) {
               const res = await saveImage(prompt, size, styleText || '', b64, 'agnes-image-2.1-flash');
               if (res && res.id) {
@@ -2896,6 +2925,15 @@
             let b64 = item.b64_json;
             if (!b64 && url.startsWith('data:image')) {
               b64 = url.split(',')[1];
+            }
+            if (!b64 && url && !url.startsWith('data:image')) {
+              showToast('正在准备图片数据...', 'info');
+              try {
+                b64 = await urlToBase64(url);
+              } catch (err) {
+                showToast('下载图片失败: ' + err.message, 'error');
+                return;
+              }
             }
             if (!b64) {
               showToast('无法保存：缺少图片数据', 'error');
