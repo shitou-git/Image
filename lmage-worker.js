@@ -159,22 +159,22 @@ async function handleGenerate(request, env) {
       model: 'agnes-image-2.1-flash',
       prompt,
       size,
-      response_format: 'b64_json',
-      extra_body: { response_format: 'b64_json' },
     };
 
     if (image && image.length > 0) {
       agnesBody.image = image;
-      agnesBody.extra_body.image = image;
-    }
-
-    if (negative_prompt) {
-      agnesBody.negative_prompt = negative_prompt;
-      agnesBody.extra_body.negative_prompt = negative_prompt;
-    }
-
-    if (image_weight !== undefined && image_weight !== null) {
-      agnesBody.extra_body.image_weight = image_weight;
+      agnesBody.extra_body = {
+        image,
+        response_format: 'b64_json',
+      };
+      if (negative_prompt) {
+        agnesBody.extra_body.negative_prompt = negative_prompt;
+      }
+      if (image_weight !== undefined && image_weight !== null) {
+        agnesBody.extra_body.image_weight = image_weight;
+      }
+    } else {
+      agnesBody.return_base64 = true;
     }
 
     const reqs = Array.from({ length: count }, () =>
