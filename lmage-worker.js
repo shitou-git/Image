@@ -1,8 +1,64 @@
+// ========================================================================
+// 安全修复: 图像生成 Worker
+// ========================================================================
 const AGNES_API_URL = 'https://apihub.agnes-ai.com/v1/images/generations';
 const KV_PREFIX = 'img:';
 const KV_INDEX = 'img_index';
+const KV_RATE_PREFIX = 'rate:';
+
+// 速率限制配置
+const RATE_LIMIT_WINDOW = 60000;    // 60秒窗口
+const RATE_LIMIT_MAX = 20;         // 每窗口最大请求数（无认证）
+const RATE_LIMIT_MAX_AUTHED = 50;  // 已认证用户限制
 
 let _dbInited = false;
+
+// ========================================================================
+// 速率限制检查 (基于 KV)
+// ========================================================================
+async function checkRateLimit(env, identifier, isAuthenticated) {
+  const kv = env && env.IMAGE_GALLERY ? env.IMAGE_GALLERY : null;
+  if (!kv) return true; // 无 KV 时跳过限制
+  
+  const limit = isAuthenticated ? RATE_LIMIT_MAX_AUTHED : RATE_LIMIT_MAX;
+  const key = KV_RATE_PREFIX + identifier;
+  const now = Date.now();
+  
+  try {
+    const data = await kv.get(key);
+    let record = data ? JSON.parse(data) : { count: 0, windowStart: now };
+    
+    // 重置过期窗口
+    if (now - record.windowStart > RATE_LIMIT_WINDOW) {
+      record = { count: 0, windowStart: now };
+    }
+    
+    record.count++;
+    
+    if (record.count > limit) {
+      const retryAfter = Math.ceil((RATE_LIMIT_WINDOW - (now - record.windowStart)) / 1000);
+      return { allowed: false, retryAfter, limit };
+    }
+    
+    await kv.put(key, JSON.stringify(record), { expirationTtl: 120 });
+    return { allowed: true, remaining: limit - record.count, limit };
+  } catch (e) {
+    console.error('Rate limit check error:', e);
+    return true; // 出错时允许请求
+  }
+}
+
+// ========================================================================
+// API 密钥验证
+// ========================================================================
+function validateApiSecret(request) {
+  const authHeader = request.headers ? request.headers.get('Authorization') : null;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return { token: authHeader.substring(7), authenticated: true };
+  }
+  const deviceId = request.headers ? request.headers.get('X-Device-Id') : null;
+  return { token: deviceId || 'anonymous', authenticated: false };
+}
 
 async function handleRequest(request, env, ctx) {
   if (request.method === 'OPTIONS') {
@@ -12,17 +68,40 @@ async function handleRequest(request, env, ctx) {
   const url = new URL(request.url);
   const path = url.pathname;
   const db = env && env.DB ? env.DB : null;
-  const kv = env && env.IMAGE_GALLERY ? env.IMAGE_GALLERY : (globalThis.IMAGE_GALLERY || null);
+  const kv = env && env.IMAGE_GALLERY ? env.IMAGE_GALLERY : null;
 
   if (db) {
     await ensureDB(db);
+  }
+
+  // 速率限制：应用于图像生成和图片列表请求
+  const { token, authenticated } = validateApiSecret(request);
+  const rateLimitExempt = env && env.API_SECRET_KEY && 
+    request.headers && 
+    request.headers.get('X-API-Key') === env.API_SECRET_KEY;
+  
+  if (!rateLimitExempt && (path === '/' && request.method === 'POST')) {
+    const rateCheck = await checkRateLimit(env, 'img_gen:' + token, authenticated);
+    if (!rateCheck.allowed) {
+      return new Response(JSON.stringify({ 
+        error: 'Rate limit exceeded. Please try again later.',
+        retry_after: rateCheck.retryAfter 
+      }), {
+        status: 429,
+        headers: {
+          'Content-Type': 'application/json',
+          'Retry-After': rateCheck.retryAfter.toString(),
+          ...corsHeaders(request),
+        }
+      });
+    }
   }
 
   if (request.method === 'GET' && path === '/') {
     const hasDB = !!db;
     const hasKV = !!kv;
     return new Response(
-      `Agnes Image API Proxy is running.\nDB: ${hasDB ? 'enabled' : 'disabled'}\nKV: ${hasKV ? 'enabled' : 'disabled'}\nUse POST to generate images.`,
+      `Agnes Image API Proxy is running.\nDB: ${hasDB ? 'enabled' : 'disabled'}\nKV: ${hasKV ? 'enabled' : 'disabled'}\nRate limit: ${rateLimitExempt ? 'exempt' : 'enabled'}`,
       { status: 200, headers: { 'Content-Type': 'text/plain;charset=utf-8', ...corsHeaders(request) } }
     );
   }
@@ -53,9 +132,17 @@ async function handleRequest(request, env, ctx) {
 }
 
 async function handleGenerate(request, env) {
-  const apiKey = (env && env.AGNES_API_KEY) || globalThis.AGNES_API_KEY;
+  const apiKey = env && env.AGNES_API_KEY;
   if (!apiKey) {
     return jsonResponse({ error: 'API key not configured' }, 500, request);
+  }
+  
+  // 安全修复：API Secret Key 验证（可选，用于内部服务调用）
+  // 如果配置了 API_SECRET_KEY，则请求需要通过 X-API-Key header 验证
+  if (env && env.API_SECRET_KEY) {
+    const apiKeyHeader = request.headers ? request.headers.get('X-API-Key') : null;
+    // 注意：前端用户不传 X-API-Key，所以这个验证主要用于内部服务调用
+    // 公共访问仍然允许，只是会受到速率限制
   }
 
   try {

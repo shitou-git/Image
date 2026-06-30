@@ -1,3 +1,6 @@
+// ========================================================================
+// 安全修复: 视频生成 Worker
+// ========================================================================
 const VIDEO_CREATE_URL = 'https://apihub.agnes-ai.com/v1/videos';
 const VIDEO_POLL_URL = 'https://apihub.agnes-ai.com/agnesapi';
 const VIDEO_POLL_URL_V1 = 'https://apihub.agnes-ai.com/v1/videos';
@@ -5,31 +8,131 @@ const VIDEO_POLL_URL_V1 = 'https://apihub.agnes-ai.com/v1/videos';
 const CREATE_TIMEOUT_MS = 120000;
 const POLL_TIMEOUT_MS = 30000;
 
+// 速率限制配置
+const KV_RATE_PREFIX = 'rate:';
+const RATE_LIMIT_WINDOW = 60000;    // 60秒窗口
+const RATE_LIMIT_MAX = 10;          // 每窗口最大创建请求
+const RATE_LIMIT_MAX_AUTHED = 30;  // 已认证用户限制
+
+// ========================================================================
+// 速率限制检查
+// ========================================================================
+async function checkRateLimit(env, identifier, isAuthenticated) {
+  const kv = env && env.VIDEO_KV ? env.VIDEO_KV : null;
+  if (!kv) return true;
+  
+  const limit = isAuthenticated ? RATE_LIMIT_MAX_AUTHED : RATE_LIMIT_MAX;
+  const key = KV_RATE_PREFIX + identifier;
+  const now = Date.now();
+  
+  try {
+    const data = await kv.get(key);
+    let record = data ? JSON.parse(data) : { count: 0, windowStart: now };
+    
+    if (now - record.windowStart > RATE_LIMIT_WINDOW) {
+      record = { count: 0, windowStart: now };
+    }
+    
+    record.count++;
+    
+    if (record.count > limit) {
+      const retryAfter = Math.ceil((RATE_LIMIT_WINDOW - (now - record.windowStart)) / 1000);
+      return { allowed: false, retryAfter, limit };
+    }
+    
+    await kv.put(key, JSON.stringify(record), { expirationTtl: 120 });
+    return { allowed: true, remaining: limit - record.count, limit };
+  } catch (e) {
+    console.error('Rate limit check error:', e);
+    return true;
+  }
+}
+
+// ========================================================================
+// 请求验证
+// ========================================================================
+function validateRequest(request) {
+  const authHeader = request.headers ? request.headers.get('Authorization') : null;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return { token: authHeader.substring(7), authenticated: true };
+  }
+  const deviceId = request.headers ? request.headers.get('X-Device-Id') : null;
+  return { token: deviceId || 'anonymous', authenticated: false };
+}
+
+// ========================================================================
+// CORS 配置（修复：统一配置并支持动态 Origin）
+// ========================================================================
+function corsHeaders(request) {
+  const origin = request && request.headers ? (request.headers.get('Origin') || '*') : '*';
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Device-Id, X-API-Key',
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Max-Age': '86400',
+  };
+}
+
 export default {
   async fetch(request, env, ctx) {
+    // 速率限制检查（仅对视频创建请求）
+    const { token, authenticated } = validateRequest(request);
+    const rateLimitExempt = env && env.API_SECRET_KEY && 
+      request.headers && 
+      request.headers.get('X-API-Key') === env.API_SECRET_KEY;
+    
+    if (!rateLimitExempt && request.method === 'POST') {
+      let isCreateRequest = false;
+      try {
+        const clone = request.clone();
+        const body = await clone.json();
+        isCreateRequest = !body.action || body.action === 'echo';
+      } catch (e) {
+        isCreateRequest = true;
+      }
+      
+      if (isCreateRequest) {
+        const rateCheck = await checkRateLimit(env, 'video:' + token, authenticated);
+        if (!rateCheck.allowed) {
+          return new Response(JSON.stringify({ 
+            error: 'Rate limit exceeded. Please try again later.',
+            retry_after: rateCheck.retryAfter 
+          }), {
+            status: 429,
+            headers: {
+              'Content-Type': 'application/json',
+              'Retry-After': rateCheck.retryAfter.toString(),
+              ...corsHeaders(request),
+            }
+          });
+        }
+      }
+    }
+
     if (request.method === 'GET') {
-      return new Response('Agnes Video API Proxy is running.', {
+      return new Response('Agnes Video API Proxy is running.\nRate limit: ' + (rateLimitExempt ? 'exempt' : 'enabled'), {
         status: 200,
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        headers: { 'Content-Type': 'text/plain;charset=utf-8', ...corsHeaders(request) },
       });
     }
 
     if (request.method === 'OPTIONS') {
-      return new Response(null, { headers: corsHeaders() });
+      return new Response(null, { headers: corsHeaders(request) });
     }
 
     if (request.method !== 'POST') {
       return new Response(JSON.stringify({ error: 'Method not allowed' }), {
         status: 405,
-        headers: corsHeaders(),
+        headers: corsHeaders(request),
       });
     }
 
-    const apiKey = env.AGNES_API_KEY;
+    const apiKey = env && env.AGNES_API_KEY;
     if (!apiKey) {
       return new Response(JSON.stringify({ error: 'API key not configured' }), {
         status: 500,
-        headers: corsHeaders(),
+        headers: corsHeaders(request),
       });
     }
 
@@ -39,7 +142,7 @@ export default {
 
       if (action === 'echo') {
         return new Response(JSON.stringify({ received: params }), {
-          headers: corsHeaders(),
+          headers: corsHeaders(request),
         });
       }
 
@@ -48,7 +151,7 @@ export default {
         if (!video_id && !task_id) {
           return new Response(JSON.stringify({ error: 'Missing video_id or task_id' }), {
             status: 400,
-            headers: corsHeaders(),
+            headers: corsHeaders(request),
           });
         }
 
@@ -93,13 +196,13 @@ export default {
                 let v1Data;
                 try { v1Data = JSON.parse(v1Text); } catch (e) { v1Data = { error: v1Text }; }
                 return new Response(JSON.stringify(v1Data), {
-                  headers: corsHeaders(),
+                  headers: corsHeaders(request),
                 });
               }
             } catch (e) {}
           }
           const errMsg = pollData.error?.message || pollData.error || pollData.message || pollText;
-          const headers = corsHeaders();
+          const headers = corsHeaders(request);
           if (pollRes.status === 429) {
             headers['Retry-After'] = '30';
             return new Response(JSON.stringify({ error: errMsg, is_rate_limit: true }), {
@@ -116,11 +219,11 @@ export default {
           }
           return new Response(JSON.stringify({ error: errMsg }), {
             status: pollRes.status,
-            headers: corsHeaders(),
+            headers: corsHeaders(request),
           });
         }
         return new Response(JSON.stringify(pollData), {
-          headers: corsHeaders(),
+          headers: corsHeaders(request),
         });
       }
 
@@ -129,7 +232,7 @@ export default {
       if (!prompt) {
         return new Response(JSON.stringify({ error: 'Missing required field: prompt' }), {
           status: 400,
-          headers: corsHeaders(),
+          headers: corsHeaders(request),
         });
       }
 
@@ -176,12 +279,12 @@ export default {
         if (fetchErr.name === 'AbortError') {
           return new Response(JSON.stringify({ error: '创建任务超时，请稍后重试' }), {
             status: 504,
-            headers: corsHeaders(),
+            headers: corsHeaders(request),
           });
         }
         return new Response(JSON.stringify({ error: fetchErr.message }), {
           status: 502,
-          headers: corsHeaders(),
+          headers: corsHeaders(request),
         });
       }
 
@@ -192,33 +295,24 @@ export default {
         const errMsg = createData.error?.message || createData.error || createData.message || createText;
         return new Response(JSON.stringify({ error: errMsg }), {
           status: createRes.status,
-          headers: corsHeaders(),
+          headers: corsHeaders(request),
         });
       }
       if (!createData.video_id && !createData.id) {
         return new Response(JSON.stringify({ error: '创建任务成功但未返回 video_id', raw: createData }), {
           status: 500,
-          headers: corsHeaders(),
+          headers: corsHeaders(request),
         });
       }
       return new Response(JSON.stringify(createData), {
         status: 200,
-        headers: corsHeaders(),
+        headers: corsHeaders(request),
       });
     } catch (err) {
       return new Response(JSON.stringify({ error: err.message }), {
         status: 500,
-        headers: corsHeaders(),
+        headers: corsHeaders(request),
       });
     }
   },
 };
-
-function corsHeaders() {
-  return {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS, GET',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Content-Type': 'application/json',
-  };
-}
