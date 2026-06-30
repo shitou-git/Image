@@ -22,11 +22,26 @@ function getConfig(env) {
 // ========================================================================
 // 密码哈希 (使用 PBKDF2 替代不安全的 SHA-256)
 // ========================================================================
+function hexToBytes(hex) {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+  }
+  return bytes;
+}
+
 async function hashPassword(password, salt = null) {
   const encoder = new TextEncoder();
-  const saltBytes = salt 
-    ? encoder.encode(salt) 
-    : crypto.getRandomValues(new Uint8Array(16));
+  let saltBytes;
+  if (salt) {
+    if (typeof salt === 'string') {
+      saltBytes = hexToBytes(salt);
+    } else {
+      saltBytes = salt;
+    }
+  } else {
+    saltBytes = crypto.getRandomValues(new Uint8Array(16));
+  }
   
   // PBKDF2 with 100000 iterations
   const keyMaterial = await crypto.subtle.importKey(
@@ -683,27 +698,28 @@ export default {
       if (path === '/api/admin/login' && request.method === 'POST') {
         const config = getConfig(env);
         const pwd = (body && body.password) || '';
-        // 安全修复：使用环境变量中的管理员密码
         if (!config.ADMIN_PASSWORD) {
           return jsonResponse({ error: '管理员未配置' }, 500, request);
         }
         if (pwd !== config.ADMIN_PASSWORD) {
           return jsonResponse({ error: '密码错误' }, 401, request);
         }
-        // 安全修复：生成安全的随机 token 并存储其 hash
         const { token, tokenHash } = await createSecureAdminToken();
         
-        // 存储 token hash 到 KV（如果有的话）
+        let kvError = null;
+        let kvOk = false;
         if (env.ADMIN_TOKENS) {
           try {
             const tokens = JSON.parse(await env.ADMIN_TOKENS.get('admin_tokens') || '[]');
             tokens.push({ hash: tokenHash, created: Date.now(), expires: Date.now() + 7 * 24 * 60 * 60 * 1000 });
-            // 只保留最近 10 个 token
             const validTokens = tokens.filter(t => t.expires > Date.now()).slice(-10);
             await env.ADMIN_TOKENS.put('admin_tokens', JSON.stringify(validTokens));
-          } catch (e) {}
+            kvOk = true;
+          } catch (e) {
+            kvError = e.message;
+          }
         }
-        return jsonResponse({ token, expires_in: 7 * 24 * 60 * 60 }, 200, request);
+        return jsonResponse({ token, expires_in: 7 * 24 * 60 * 60, kv_ok: kvOk, kv_error: kvError }, 200, request);
       }
 
       // 安全修复：安全的 admin token 验证函数
