@@ -2,7 +2,7 @@
 // 安全修复: 图像生成 Worker
 // ========================================================================
 const AGNES_API_URL = 'https://apihub.agnes-ai.com/v1/images/generations';
-const CHAT_APP_DB_URL = 'https://chat-app-db.chatlz.dpdns.org';  // 图片保存服务
+const CHAT_APP_DB_URL = 'https://chat-app-db.chatlz.dpdns.org';
 const KV_PREFIX = 'img:';
 const KV_INDEX = 'img_index';
 const KV_RATE_PREFIX = 'rate:';
@@ -129,44 +129,7 @@ async function handleRequest(request, env, ctx) {
     return handleGenerate(request, env);
   }
 
-  // 迁移历史记录到登录用户（合并设备ID的数据到登录账号下）
-  if (path === '/api/images/migrate' && request.method === 'POST') {
-    return handleMigrateImages(db, kv, request);
-  }
-
   return jsonResponse({ error: 'Not found: ' + path }, 404, request);
-}
-
-async function handleMigrateImages(db, kv, request) {
-  // 必须是已登录用户
-  const authHeader = request && request.headers ? request.headers.get('Authorization') : null;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return jsonResponse({ error: 'Unauthorized' }, 401, request);
-  }
-  const token = authHeader.substring(7);
-  const targetUserId = await getUserId(request, db);
-  if (!targetUserId || targetUserId === 'public') {
-    return jsonResponse({ error: 'Invalid session' }, 401, request);
-  }
-  const deviceId = request.headers ? request.headers.get('X-Device-Id') : null;
-  if (!deviceId) {
-    return jsonResponse({ error: 'Missing X-Device-Id' }, 400, request);
-  }
-  const sourceUserId = 'dev:' + deviceId;
-
-  if (db) {
-    try {
-      // 把来源 user_id 的所有记录改成目标 user_id
-      const result = await db.prepare(
-        'UPDATE generated_images SET user_id = ?1 WHERE user_id = ?2 AND user_id != ?1'
-      ).bind(targetUserId, sourceUserId).run();
-      return jsonResponse({ ok: true, migrated: result.meta?.changes || 0, user_id: targetUserId }, 200, request);
-    } catch (e) {
-      console.error('Migrate error:', e);
-      return jsonResponse({ error: 'Migrate failed: ' + e.message }, 500, request);
-    }
-  }
-  return jsonResponse({ error: 'No storage' }, 500, request);
 }
 
 async function handleGenerate(request, env) {
@@ -212,7 +175,7 @@ async function handleGenerate(request, env) {
         agnesBody.extra_body.image_weight = image_weight;
       }
     } else {
-      agnesBody.extra_body = { response_format: 'url' };
+      agnesBody.return_base64 = true;
     }
 
     const reqs = Array.from({ length: count }, () =>
@@ -240,95 +203,6 @@ async function handleGenerate(request, env) {
 
     const allData = results.flatMap(r => r.data || []);
     const merged = { created: Math.floor(Date.now() / 1000), data: allData };
-
-    // 如果响应里只有 url 没有 b64_json，则下载图片转成 base64 一并返回
-    const needDownload = allData.length > 0 && allData.some(d => d.url && !d.b64_json);
-    if (needDownload) {
-      try {
-        await Promise.all(merged.data.map(async (item) => {
-          if (item.url && !item.b64_json) {
-            try {
-              const imgRes = await fetch(item.url);
-              if (imgRes.ok) {
-                const buf = await imgRes.arrayBuffer();
-                const bytes = new Uint8Array(buf);
-                let bin = '';
-                for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-                item.b64_json = btoa(bin);
-              }
-            } catch (e) {
-              console.error('Download image error:', e);
-            }
-          }
-        }));
-      } catch (e) {
-        console.error('Image download batch error:', e);
-      }
-    }
-
-    // 自动保存到历史记录（调用 chat-app-db worker）
-    console.log('=== 开始自动保存 ===');
-    console.log('Auto-save: 请求URL:', CHAT_APP_DB_URL + '/api/images');
-    const db = env && env.DB ? env.DB : null;
-    const userId = await getUserId(request, db);
-    console.log('Auto-save: lmage本地计算userId =', userId);
-    const headers = { 'Content-Type': 'application/json' };
-    const deviceId = request.headers ? request.headers.get('X-Device-Id') : null;
-    const authHeader = request.headers ? request.headers.get('Authorization') : null;
-    console.log('Auto-save: 原始请求 deviceId =', deviceId ? '有(' + deviceId.substring(0, 10) + '...)' : '无');
-    console.log('Auto-save: 原始请求 authHeader =', authHeader ? '有(' + authHeader.substring(0, 20) + '...)' : '无');
-    if (deviceId) {
-      headers['X-Device-Id'] = deviceId;
-      console.log('Auto-save: 使用 X-Device-Id 认证');
-    } else if (authHeader) {
-      headers['Authorization'] = authHeader;
-      console.log('Auto-save: 使用 Authorization 认证');
-    } else {
-      console.log('Auto-save: 警告！没有找到任何认证信息！');
-    }
-    console.log('Auto-save: 保存请求头 keys:', Object.keys(headers));
-
-    let itemIdx = 0;
-    let saveSuccessCount = 0;
-    let saveFailCount = 0;
-    for (const item of merged.data) {
-      if (item.b64_json) {
-        console.log('Auto-save: 准备保存第', itemIdx + 1, '张图片, b64长度:', item.b64_json.length);
-        try {
-          const saveRes = await fetch(CHAT_APP_DB_URL + '/api/images', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-              prompt: prompt,
-              size: size,
-              style: '',
-              image_b64: item.b64_json,
-              model: 'agnes-image-2.1-flash'
-            })
-          });
-          const saveData = await saveRes.json();
-          console.log('Auto-save: 保存响应状态:', saveRes.status, saveRes.ok);
-          console.log('Auto-save: 保存结果:', JSON.stringify(saveData).substring(0, 200));
-          if (saveRes.ok && saveData.id) {
-            console.log('Auto-save: 第', itemIdx + 1, '张保存成功，id:', saveData.id);
-            saveSuccessCount++;
-            item.id = saveData.id;
-            item.created_at = saveData.created_at;
-            item.is_favorite = 0;
-          } else {
-            console.error('Auto-save: 第', itemIdx + 1, '张保存失败:', saveData?.error || saveRes.statusText);
-            saveFailCount++;
-          }
-        } catch (e) {
-          console.error('Auto-save: 第', itemIdx + 1, '张保存异常:', e.message, e.stack);
-          saveFailCount++;
-        }
-      } else {
-        console.log('Auto-save: 跳过第', itemIdx + 1, '张, 无b64_json');
-      }
-      itemIdx++;
-    }
-    console.log('=== 自动保存完成: 成功', saveSuccessCount, '张, 失败', saveFailCount, '张 ===');
 
     return jsonResponse(merged, 200, request);
   } catch (err) {
@@ -371,7 +245,22 @@ async function getUserId(request, db) {
   const authHeader = request && request.headers ? request.headers.get('Authorization') : null;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.substring(7);
-    // 如果有 D1，查询 sessions 表获取真实 user_id
+    // 优先调用 chat-app-db worker 验证 token，获取真实 user_id
+    try {
+      const verifyRes = await fetch(CHAT_APP_DB_URL + '/api/auth/me', {
+        method: 'GET',
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (verifyRes.ok) {
+        const verifyData = await verifyRes.json();
+        if (verifyData && verifyData.id) {
+          return verifyData.id;
+        }
+      }
+    } catch (e) {
+      console.error('Token verification via chat-app-db failed:', e.message);
+    }
+    // 如果验证失败，回退到查本地数据库
     if (db) {
       try {
         const session = await db.prepare(
@@ -384,7 +273,7 @@ async function getUserId(request, db) {
         console.error('Session lookup error:', e);
       }
     }
-    // D1 不可用时回退到 token 本身（兼容旧数据）
+    // 都失败时回退到 token 本身（兼容旧数据）
     return token;
   }
   const deviceId = request && request.headers ? request.headers.get('X-Device-Id') : null;
@@ -535,8 +424,6 @@ async function handleListImages(db, kv, url, request) {
 
       if (favorite === '1') {
         index = index.filter(i => i.is_favorite);
-      } else {
-        index = index.filter(i => !i.is_favorite);
       }
 
       const total = index.length;

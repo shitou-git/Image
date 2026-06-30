@@ -3,9 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
 <title>图像生成</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1355,7 +1352,7 @@
     </div>
 
     <div class="left-footer">
-      @Stone || Powered by Sapiens AI · v <span id="versionDisplayLeft"></span>
+      @Stone || Powered by Sapiens AI · v<span id="versionText">1.4.2</span>
     </div>
   </div>
 
@@ -1392,7 +1389,7 @@
   </div>
 
   <div class="global-footer">
-    @Stone || Powered by Sapiens AI · v <span id="versionDisplay"></span>
+    @Stone || Powered by Sapiens AI · v1.4.2
   </div>
 </div>
 
@@ -1451,20 +1448,10 @@
 </div>
 
 <script>
-  const APP_VERSION = '1.4.1';
-  const API_URL = 'https://chat-app-db.chatlz.dpdns.org';
-  const IMAGE_API_URL = 'https://lmage.chatlz.dpdns.org';
+  const API_URL = 'https://lmage.chatlz.dpdns.org';
   const VIDEO_API_URL = 'https://video.chatlz.dpdns.org';
   const AUTH_API_URL = 'https://chat-app-db.chatlz.dpdns.org';
-
-  (function checkVersion() {
-    const lastVersion = localStorage.getItem('app_version');
-    if (lastVersion && lastVersion !== APP_VERSION) {
-      localStorage.removeItem('historyCache');
-      localStorage.removeItem('favoritesCache');
-    }
-    localStorage.setItem('app_version', APP_VERSION);
-  })();
+  const APP_VERSION = '1.4.2';
 
   // ── DOM refs ──
   const modeTabs = document.getElementById('modeTabs');
@@ -1935,7 +1922,7 @@
       if (negativePrompt) body.negative_prompt = negativePrompt;
       if (imageWeightVal !== undefined) body.image_weight = imageWeightVal;
 
-      const res = await fetch(IMAGE_API_URL, {
+      const res = await fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -1954,16 +1941,14 @@
       // 收集所有图片 URL 用于切换
       const allUrls = [];
       items.slice(0, n).forEach(item => {
-        let url = '';
-        if (item.b64_json) url = 'data:image/png;base64,' + item.b64_json;
-        else if (item.url) url = item.url;
+        let url = item.url;
+        if (!url && item.b64_json) url = 'data:image/png;base64,' + item.b64_json;
         if (url) allUrls.push(url);
       });
 
       items.slice(0, n).forEach((item, idx) => {
-        let url = '';
-        if (item.b64_json) url = 'data:image/png;base64,' + item.b64_json;
-        else if (item.url) url = item.url;
+        let url = item.url;
+        if (!url && item.b64_json) url = 'data:image/png;base64,' + item.b64_json;
         if (!url) return;
 
         const card = document.createElement('div');
@@ -2376,27 +2361,6 @@
     };
   }
 
-  // ── URL转Base64 ──
-  async function urlToBase64(url) {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('下载失败: ' + res.status);
-      const blob = await res.blob();
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const b64 = reader.result.split(',')[1];
-          resolve(b64);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-    } catch (e) {
-      console.error('urlToBase64 error:', e);
-      throw e;
-    }
-  }
-
   // ── 保存图片 ──
   async function saveImage(prompt, size, style, imageB64, model) {
     try {
@@ -2421,9 +2385,7 @@
         page, limit, with_image: withImage ? '1' : '0',
       });
       if (favorite) params.set('favorite', '1');
-      const url = API_URL + '/api/images?' + params.toString();
-      console.log('listImages fetching:', url);
-      const res = await fetch(url, {
+      const res = await fetch(API_URL + '/api/images?' + params.toString(), {
         method: 'GET',
         headers: apiHeaders(),
       });
@@ -2432,8 +2394,6 @@
       return data;
     } catch (e) {
       console.error('listImages error:', e);
-      console.error('listImages error message:', e.message);
-      console.error('listImages error name:', e.name);
       throw e;
     }
   }
@@ -2482,10 +2442,6 @@
   const favGrid = document.getElementById('favGrid');
   const placeholderText = document.getElementById('placeholderText');
   const storageInfo = document.getElementById('storageInfo');
-  const versionDisplay = document.getElementById('versionDisplay');
-  const versionDisplayLeft = document.getElementById('versionDisplayLeft');
-  if (versionDisplay) versionDisplay.textContent = APP_VERSION;
-  if (versionDisplayLeft) versionDisplayLeft.textContent = APP_VERSION;
 
   resultTabs.forEach(tab => {
     tab.addEventListener('click', () => {
@@ -2520,8 +2476,8 @@
   });
 
   // ── 加载历史记录 ──
+  let historyForcePending = false;
   async function loadHistory(force = false, silent = false) {
-    console.log('loadHistory called: force=', force, 'silent=', silent, 'historyCache=', historyCache ? '有' : '无');
     if (!force && historyCache) {
       if (silent) return;
       const items = historyCache;
@@ -2536,38 +2492,55 @@
       }
       return;
     }
+    if (historyLoading) {
+      if (force) {
+        historyForcePending = true;
+      }
+      return;
+    }
+    historyLoading = true;
     if (!silent) {
       historyGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted);">加载中...</div>';
       historyGrid.classList.remove('hidden');
     }
     try {
-      const data = await listImages(1, 20, false, false);
-      console.log('loadHistory got data: total=', data.total, 'items=', data.items?.length);
+      const data = await listImages(1, 50, false, true);
       if (!silent) {
+        const storageType = data.storage === 'd1' ? 'D1数据库' : (data.storage === 'kv' ? 'KV存储' : '');
         storageInfo.textContent = data.storage ? ('温馨提示，历史记录只保留最近10张，如需长久保留请保存图片') : '';
       }
       const items = data.items || [];
       historyCache = items;
-      if (silent) return;
-      if (items.length === 0) {
+      if (silent && !historyForcePending) return;
+      if (items.length === 0 && !historyForcePending) {
         placeholder.style.display = '';
         placeholderText.textContent = '暂无历史记录';
         historyGrid.classList.add('hidden');
         return;
       }
-      placeholder.style.display = 'none';
-      renderHistoryGrid(historyGrid, items);
+      if (!historyForcePending) {
+        placeholder.style.display = 'none';
+        renderHistoryGrid(historyGrid, items);
+      }
     } catch (e) {
-      console.error('loadHistory error:', e);
-      if (silent) return;
-      storageInfo.textContent = '';
-      placeholder.style.display = '';
-      placeholderText.textContent = '加载失败: ' + e.message;
-      historyGrid.classList.add('hidden');
+      if (silent && !historyForcePending) return;
+      if (!historyForcePending) {
+        storageInfo.textContent = '';
+        placeholder.style.display = '';
+        placeholderText.textContent = '加载失败: ' + e.message;
+        historyGrid.classList.add('hidden');
+      }
+    } finally {
+      historyLoading = false;
+      if (historyForcePending) {
+        historyForcePending = false;
+        loadHistory(true, silent);
+      }
     }
   }
 
   // ── 加载保存 ──
+  let favoritesForcePending = false;
   async function loadFavorites(force = false, silent = false) {
     if (!force && favoritesCache) {
       if (silent) return;
@@ -2583,28 +2556,45 @@
       }
       return;
     }
+    if (favoritesLoading) {
+      if (force) {
+        favoritesForcePending = true;
+      }
+      return;
+    }
+    favoritesLoading = true;
     if (!silent) {
       favGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted);">加载中...</div>';
       favGrid.classList.remove('hidden');
     }
     try {
-      const data = await listImages(1, 50, true, false);
+      const data = await listImages(1, 50, true, true);
       const items = data.items || [];
       favoritesCache = items;
-      if (silent) return;
-      if (items.length === 0) {
+      if (silent && !favoritesForcePending) return;
+      if (items.length === 0 && !favoritesForcePending) {
         placeholder.style.display = '';
         placeholderText.textContent = '暂无保存的图片';
         favGrid.classList.add('hidden');
         return;
       }
-      placeholder.style.display = 'none';
-      renderHistoryGrid(favGrid, items, true);
+      if (!favoritesForcePending) {
+        placeholder.style.display = 'none';
+        renderHistoryGrid(favGrid, items, true);
+      }
     } catch (e) {
-      if (silent) return;
-      placeholder.style.display = '';
-      placeholderText.textContent = '加载失败: ' + e.message;
-      favGrid.classList.add('hidden');
+      if (silent && !favoritesForcePending) return;
+      if (!favoritesForcePending) {
+        placeholder.style.display = '';
+        placeholderText.textContent = '加载失败: ' + e.message;
+        favGrid.classList.add('hidden');
+      }
+    } finally {
+      favoritesLoading = false;
+      if (favoritesForcePending) {
+        favoritesForcePending = false;
+        loadFavorites(true, silent);
+      }
     }
   }
 
@@ -2616,10 +2606,17 @@
     else if (items.length === 2) container.className = 'grid n2';
     else if (items.length === 3) container.className = 'grid n3';
 
-    const allUrls = items.map(item => API_URL + '/api/images/' + item.id + '/image').filter(Boolean);
+    const allUrls = items.map(item => {
+      if (item.image_b64 && item.image_b64.startsWith('data:')) return item.image_b64;
+      if (item.image_b64) return 'data:image/png;base64,' + item.image_b64;
+      return '';
+    }).filter(Boolean);
 
     items.forEach((item, idx) => {
-      const url = API_URL + '/api/images/' + item.id + '/image';
+      let url = '';
+      if (item.image_b64 && item.image_b64.startsWith('data:')) url = item.image_b64;
+      else if (item.image_b64) url = 'data:image/png;base64,' + item.image_b64;
+      if (!url) return;
 
       const card = document.createElement('div');
       card.className = 'img-card';
@@ -2668,10 +2665,8 @@
           await updateImage(item.id, newFav);
           if (isFavView) {
             loadFavorites(true);
-            loadHistory(true, true);
           } else {
             loadHistory(true);
-            loadFavorites(true, true);
           }
           showToast(newFav ? '已保存' : '已取消保存', 'success');
         } catch (err) {
@@ -2691,10 +2686,8 @@
           await deleteImage(item.id);
           if (isFavView) {
             loadFavorites(true);
-            loadHistory(true, true);
           } else {
             loadHistory(true);
-            loadFavorites(true, true);
           }
           showToast('已删除', 'success');
         } catch (err) {
@@ -2784,11 +2777,9 @@
       if (negativePrompt) body.negative_prompt = negativePrompt;
       if (imageWeightVal !== undefined) body.image_weight = imageWeightVal;
 
-      const headers = apiHeaders();
-      console.log('生成图片请求头:', JSON.stringify(headers));
-      const res = await fetch(IMAGE_API_URL, {
+      const res = await fetch(API_URL, {
         method: 'POST',
-        headers: headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
         signal: generateAbortController.signal,
       });
@@ -2799,39 +2790,47 @@
       const items = data.data || [];
       if (items.length === 0) throw new Error('未获取到图像数据');
 
-      console.log('生成图片响应: 张数=', items.length, '第一张有id=', !!items[0]?.id, '第一张is_favorite=', items[0]?.is_favorite);
-
       grid.innerHTML = '';
       const actualN = Math.min(items.length, n);
       grid.className = 'grid n' + actualN;
 
       const allUrls = [];
       const savedItems = [];
+      const savedItemIds = [];
       items.slice(0, n).forEach(item => {
-        let url = '';
-        if (item.b64_json) url = 'data:image/png;base64,' + item.b64_json;
-        else if (item.url) url = item.url;
+        let url = item.url;
+        if (!url && item.b64_json) url = 'data:image/png;base64,' + item.b64_json;
         if (url) {
           allUrls.push(url);
           savedItems.push({ ...item, url });
         }
       });
 
-      // 注意：现在 lmage worker 会在生成后自动保存到历史记录
-      // 延迟刷新历史记录缓存，等待后端自动保存完成
-      const isOnHistoryTab = currentRTab === 'history';
-      const isOnFavTab = currentRTab === 'favorites';
-      setTimeout(() => {
-        console.log('刷新历史记录缓存...');
-        loadHistory(true, !isOnHistoryTab && !isOnFavTab);
-        if (isOnFavTab) loadFavorites(true);
-        else loadFavorites(true, true);
-      }, 1500);
+      // 自动保存到历史记录（后台静默执行）
+      (async () => {
+        try {
+          for (let i = 0; i < savedItems.length; i++) {
+            const item = savedItems[i];
+            let b64 = item.b64_json;
+            if (!b64 && item.url && item.url.startsWith('data:image')) {
+              b64 = item.url.split(',')[1];
+            }
+            if (b64) {
+              const res = await saveImage(prompt, size, styleText || '', b64, 'agnes-image-2.1-flash');
+              if (res && res.id) {
+                savedItemIds[i] = res.id;
+              }
+            }
+          }
+          // 自动保存完成后静默刷新历史记录缓存
+          loadHistory(true, true);
+        } catch (e) {
+          console.error('自动保存失败:', e);
+        }
+      })();
 
       savedItems.forEach((item, idx) => {
-        let url = '';
-        if (item.b64_json) url = 'data:image/png;base64,' + item.b64_json;
-        else if (item.url) url = item.url;
+        const url = item.url;
         const card = document.createElement('div');
         card.className = 'img-card';
         card.style.aspectRatio = size.split('x')[0] + '/' + size.split('x')[1];
@@ -2857,36 +2856,23 @@
 
         const saveBtn = document.createElement('button');
         saveBtn.className = 'card-btn';
-        const isFav = item.is_favorite === true || item.is_favorite === 1;
-        if (isFav) {
-          saveBtn.style.backgroundColor = 'rgba(59,130,246,0.6)';
-        }
-        saveBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="' + (isFav ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>';
-        saveBtn.title = isFav ? '已保存' : '永久保存';
-        let saved = isFav;
+        saveBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>';
+        saveBtn.title = '永久保存';
+        let saved = false;
         saveBtn.addEventListener('click', async e => {
           e.stopPropagation();
           if (saved) return;
           try {
-            let imgId = item.id;
+            let b64 = item.b64_json;
+            if (!b64 && url.startsWith('data:image')) {
+              b64 = url.split(',')[1];
+            }
+            if (!b64) {
+              showToast('无法保存：缺少图片数据', 'error');
+              return;
+            }
+            let imgId = savedItemIds[idx];
             if (!imgId) {
-              let b64 = item.b64_json;
-              if (!b64 && url.startsWith('data:image')) {
-                b64 = url.split(',')[1];
-              }
-              if (!b64 && url && !url.startsWith('data:image')) {
-                showToast('正在准备图片数据...', 'info');
-                try {
-                  b64 = await urlToBase64(url);
-                } catch (err) {
-                  showToast('下载图片失败: ' + err.message, 'error');
-                  return;
-                }
-              }
-              if (!b64) {
-                showToast('无法保存：缺少图片数据', 'error');
-                return;
-              }
               const saveRes = await saveImage(prompt, size, styleText || '', b64, 'agnes-image-2.1-flash');
               imgId = saveRes?.id;
             }
@@ -2898,13 +2884,6 @@
             saveBtn.querySelector('svg').setAttribute('fill', 'currentColor');
             saveBtn.title = '已保存';
             showToast('已永久保存', 'success');
-            // 保存后刷新历史记录和保存列表
-            const isOnHistoryTab = currentRTab === 'history';
-            const isOnFavTab = currentRTab === 'favorites';
-            if (isOnHistoryTab) loadHistory(true);
-            else loadHistory(true, true);
-            if (isOnFavTab) loadFavorites(true);
-            else loadFavorites(true, true);
           } catch (err) {
             showToast(err.message, 'error');
           }
@@ -3074,32 +3053,6 @@
       showToast('登录成功', 'success');
       loginEmail.value = '';
       loginPwd.value = '';
-      // 迁移设备上的历史记录和保存到登录账号下
-      try {
-        const migRes = await fetch(API_URL + '/api/images/migrate', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + data.token,
-            'X-Device-Id': getDeviceId(),
-          },
-        });
-        if (migRes.ok) {
-          const migData = await migRes.json();
-          if (migData.migrated > 0) {
-            showToast('已合并 ' + migData.migrated + ' 条历史记录', 'success');
-          }
-        }
-      } catch (e) {
-        console.error('migrate error:', e);
-      }
-      // 重新加载历史记录和保存
-      setTimeout(() => {
-        historyCache = null;
-        favoritesCache = null;
-        loadHistory(true);
-        loadFavorites(true);
-      }, 100);
     } catch (e) {
       authError.textContent = e.message;
     } finally {
