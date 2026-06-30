@@ -267,18 +267,21 @@ async function handleGenerate(request, env) {
     }
 
     // 自动保存到历史记录（调用 chat-app-db worker）
+    console.log('=== 开始自动保存 ===');
     const db = env && env.DB ? env.DB : null;
     const userId = await getUserId(request, db);
+    console.log('Auto-save: userId =', userId);
     const headers = { 'Content-Type': 'application/json' };
     const deviceId = request.headers ? request.headers.get('X-Device-Id') : null;
+    const authHeader = request.headers ? request.headers.get('Authorization') : null;
+    console.log('Auto-save: deviceId =', deviceId, 'authHeader =', authHeader ? authHeader.substring(0, 20) + '...' : null);
     if (deviceId) headers['X-Device-Id'] = deviceId;
-    else {
-      const authHeader = request.headers ? request.headers.get('Authorization') : null;
-      if (authHeader) headers['Authorization'] = authHeader;
-    }
+    else if (authHeader) headers['Authorization'] = authHeader;
+    console.log('Auto-save: 保存请求头:', JSON.stringify(headers));
 
     for (const item of merged.data) {
       if (item.b64_json) {
+        console.log('Auto-save: 准备保存图片, b64长度:', item.b64_json.length);
         try {
           const saveRes = await fetch(CHAT_APP_DB_URL + '/api/images', {
             method: 'POST',
@@ -291,14 +294,21 @@ async function handleGenerate(request, env) {
               model: 'agnes-image-2.1-flash'
             })
           });
+          const saveData = await saveRes.json();
+          console.log('Auto-save: 保存结果:', JSON.stringify(saveData));
           if (saveRes.ok) {
-            console.log('Auto-saved to history:', await saveRes.json());
+            console.log('Auto-saved to history:', saveData);
+          } else {
+            console.error('Auto-save failed:', saveData);
           }
         } catch (e) {
           console.error('Auto-save error:', e);
         }
+      } else {
+        console.log('Auto-save: 跳过, 无b64_json');
       }
     }
+    console.log('=== 自动保存完成 ===');
 
     return jsonResponse(merged, 200, request);
   } catch (err) {

@@ -1451,7 +1451,7 @@
 </div>
 
 <script>
-  const APP_VERSION = '1.2.8';
+  const APP_VERSION = '1.2.9';
   const API_URL = 'https://chat-app-db.chatlz.dpdns.org';
   const IMAGE_API_URL = 'https://lmage.chatlz.dpdns.org';
   const VIDEO_API_URL = 'https://video.chatlz.dpdns.org';
@@ -2821,9 +2821,11 @@
       if (negativePrompt) body.negative_prompt = negativePrompt;
       if (imageWeightVal !== undefined) body.image_weight = imageWeightVal;
 
+      const headers = apiHeaders();
+      console.log('生成图片请求头:', JSON.stringify(headers));
       const res = await fetch(IMAGE_API_URL, {
         method: 'POST',
-        headers: apiHeaders(),
+        headers: headers,
         body: JSON.stringify(body),
         signal: generateAbortController.signal,
       });
