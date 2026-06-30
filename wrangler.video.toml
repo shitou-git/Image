@@ -1,0 +1,4 @@
+# Video Worker - 视频生成
+name = "video"
+main = "worker.js"
+compatibility_date = "2024-01-01"

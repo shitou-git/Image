@@ -1,0 +1,10 @@
+# Chat App DB Worker - 用户认证 + 聊天
+name = "chat-app-db"
+main = "chat-app-db-worker.js"
+compatibility_date = "2024-01-01"
+
+# 绑定 D1 数据库
+[[d1_databases]]
+binding = "DB"
+database_name = "chat-app-db"
+database_id = "46260ff3-1d5a-459a-a8d8-33d329d18176"
