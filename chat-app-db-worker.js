@@ -192,7 +192,7 @@ function corsHeaders(request) {
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cache-Control, Pragma',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cache-Control, Pragma, X-Device-Id',
     'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Max-Age': '86400',
   };
@@ -506,6 +506,22 @@ async function handleSaveImage(db, userId, body, request) {
     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
   `).bind(id, userId, prompt, size || '', style || '', image_b64, model || '', ts).run();
 
+  const HISTORY_LIMIT = 10;
+  const countResult = await db.prepare(
+    'SELECT COUNT(*) as total FROM generated_images WHERE user_id = ?1'
+  ).bind(userId).first();
+  const total = countResult?.total || 0;
+  if (total > HISTORY_LIMIT) {
+    const excess = total - HISTORY_LIMIT;
+    const allOldIds = await db.prepare(
+      'SELECT id FROM generated_images WHERE user_id = ?1 AND is_favorite = 0 ORDER BY created_at ASC'
+    ).bind(userId).all();
+    const toDelete = (allOldIds.results || []).slice(0, excess);
+    for (const row of toDelete) {
+      await db.prepare('DELETE FROM generated_images WHERE id = ?1').bind(row.id).run();
+    }
+  }
+
   return jsonResponse({ id, created_at: ts }, 200, request);
 }
 
@@ -544,6 +560,7 @@ async function handleListImages(db, userId, url, request) {
     total: countResult?.total || 0,
     page,
     limit,
+    storage: 'd1',
   }, 200, request);
 }
 
