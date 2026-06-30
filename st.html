@@ -1452,7 +1452,7 @@
 </div>
 
 <script>
-  const APP_VERSION = '1.2.0';
+  const APP_VERSION = '1.2.1';
   const API_URL = 'https://lmage.chatlz.dpdns.org';
   const VIDEO_API_URL = 'https://video.chatlz.dpdns.org';
   const AUTH_API_URL = 'https://chat-app-db.chatlz.dpdns.org';
@@ -1954,14 +1954,16 @@
       // 收集所有图片 URL 用于切换
       const allUrls = [];
       items.slice(0, n).forEach(item => {
-        let url = item.url;
-        if (!url && item.b64_json) url = 'data:image/png;base64,' + item.b64_json;
+        let url = '';
+        if (item.b64_json) url = 'data:image/png;base64,' + item.b64_json;
+        else if (item.url) url = item.url;
         if (url) allUrls.push(url);
       });
 
       items.slice(0, n).forEach((item, idx) => {
-        let url = item.url;
-        if (!url && item.b64_json) url = 'data:image/png;base64,' + item.b64_json;
+        let url = '';
+        if (item.b64_json) url = 'data:image/png;base64,' + item.b64_json;
+        else if (item.url) url = item.url;
         if (!url) return;
 
         const card = document.createElement('div');
@@ -2813,8 +2815,9 @@
       const savedItems = [];
       const savedItemIds = [];
       items.slice(0, n).forEach(item => {
-        let url = item.url;
-        if (!url && item.b64_json) url = 'data:image/png;base64,' + item.b64_json;
+        let url = '';
+        if (item.b64_json) url = 'data:image/png;base64,' + item.b64_json;
+        else if (item.url) url = item.url;
         if (url) {
           allUrls.push(url);
           savedItems.push({ ...item, url });
@@ -2845,7 +2848,9 @@
       })();
 
       savedItems.forEach((item, idx) => {
-        const url = item.url;
+        let url = '';
+        if (item.b64_json) url = 'data:image/png;base64,' + item.b64_json;
+        else if (item.url) url = item.url;
         const card = document.createElement('div');
         card.className = 'img-card';
         card.style.aspectRatio = size.split('x')[0] + '/' + size.split('x')[1];
