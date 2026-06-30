@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>图像生成</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1365,6 +1368,7 @@
         <button class="result-tab" data-rtab="favorites">保存</button>
       </div>
       <div class="history-storage-info" id="storageInfo" style="display:none;"></div>
+      <div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:8px;opacity:0.6;">v <span id="versionDisplay"></span></div>
     </div>
     <div class="right-placeholder" id="placeholder">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
@@ -1448,9 +1452,19 @@
 </div>
 
 <script>
+  const APP_VERSION = '1.1.0';
   const API_URL = 'https://lmage.chatlz.dpdns.org';
   const VIDEO_API_URL = 'https://video.chatlz.dpdns.org';
   const AUTH_API_URL = 'https://chat-app-db.chatlz.dpdns.org';
+
+  (function checkVersion() {
+    const lastVersion = localStorage.getItem('app_version');
+    if (lastVersion && lastVersion !== APP_VERSION) {
+      localStorage.removeItem('historyCache');
+      localStorage.removeItem('favoritesCache');
+    }
+    localStorage.setItem('app_version', APP_VERSION);
+  })();
 
   // ── DOM refs ──
   const modeTabs = document.getElementById('modeTabs');
@@ -2441,6 +2455,8 @@
   const favGrid = document.getElementById('favGrid');
   const placeholderText = document.getElementById('placeholderText');
   const storageInfo = document.getElementById('storageInfo');
+  const versionDisplay = document.getElementById('versionDisplay');
+  if (versionDisplay) versionDisplay.textContent = APP_VERSION;
 
   resultTabs.forEach(tab => {
     tab.addEventListener('click', () => {
