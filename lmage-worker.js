@@ -128,7 +128,44 @@ async function handleRequest(request, env, ctx) {
     return handleGenerate(request, env);
   }
 
+  // 迁移历史记录到登录用户（合并设备ID的数据到登录账号下）
+  if (path === '/api/images/migrate' && request.method === 'POST') {
+    return handleMigrateImages(db, kv, request);
+  }
+
   return jsonResponse({ error: 'Not found: ' + path }, 404, request);
+}
+
+async function handleMigrateImages(db, kv, request) {
+  // 必须是已登录用户
+  const authHeader = request && request.headers ? request.headers.get('Authorization') : null;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return jsonResponse({ error: 'Unauthorized' }, 401, request);
+  }
+  const token = authHeader.substring(7);
+  const targetUserId = await getUserId(request, db);
+  if (!targetUserId || targetUserId === 'public') {
+    return jsonResponse({ error: 'Invalid session' }, 401, request);
+  }
+  const deviceId = request.headers ? request.headers.get('X-Device-Id') : null;
+  if (!deviceId) {
+    return jsonResponse({ error: 'Missing X-Device-Id' }, 400, request);
+  }
+  const sourceUserId = 'dev:' + deviceId;
+
+  if (db) {
+    try {
+      // 把来源 user_id 的所有记录改成目标 user_id
+      const result = await db.prepare(
+        'UPDATE generated_images SET user_id = ?1 WHERE user_id = ?2 AND user_id != ?1'
+      ).bind(targetUserId, sourceUserId).run();
+      return jsonResponse({ ok: true, migrated: result.meta?.changes || 0, user_id: targetUserId }, 200, request);
+    } catch (e) {
+      console.error('Migrate error:', e);
+      return jsonResponse({ error: 'Migrate failed: ' + e.message }, 500, request);
+    }
+  }
+  return jsonResponse({ error: 'No storage' }, 500, request);
 }
 
 async function handleGenerate(request, env) {
@@ -174,7 +211,7 @@ async function handleGenerate(request, env) {
         agnesBody.extra_body.image_weight = image_weight;
       }
     } else {
-      agnesBody.return_base64 = true;
+      agnesBody.extra_body = { response_format: 'url' };
     }
 
     const reqs = Array.from({ length: count }, () =>
@@ -202,6 +239,31 @@ async function handleGenerate(request, env) {
 
     const allData = results.flatMap(r => r.data || []);
     const merged = { created: Math.floor(Date.now() / 1000), data: allData };
+
+    // 如果响应里只有 url 没有 b64_json，则下载图片转成 base64 一并返回
+    const needDownload = allData.length > 0 && allData.some(d => d.url && !d.b64_json);
+    if (needDownload) {
+      try {
+        await Promise.all(merged.data.map(async (item) => {
+          if (item.url && !item.b64_json) {
+            try {
+              const imgRes = await fetch(item.url);
+              if (imgRes.ok) {
+                const buf = await imgRes.arrayBuffer();
+                const bytes = new Uint8Array(buf);
+                let bin = '';
+                for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+                item.b64_json = btoa(bin);
+              }
+            } catch (e) {
+              console.error('Download image error:', e);
+            }
+          }
+        }));
+      } catch (e) {
+        console.error('Image download batch error:', e);
+      }
+    }
 
     return jsonResponse(merged, 200, request);
   } catch (err) {

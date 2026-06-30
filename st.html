@@ -1452,7 +1452,7 @@
 </div>
 
 <script>
-  const APP_VERSION = '1.1.0';
+  const APP_VERSION = '1.2.0';
   const API_URL = 'https://lmage.chatlz.dpdns.org';
   const VIDEO_API_URL = 'https://video.chatlz.dpdns.org';
   const AUTH_API_URL = 'https://chat-app-db.chatlz.dpdns.org';
@@ -3068,6 +3068,32 @@
       showToast('登录成功', 'success');
       loginEmail.value = '';
       loginPwd.value = '';
+      // 迁移设备上的历史记录和保存到登录账号下
+      try {
+        const migRes = await fetch(API_URL + '/api/images/migrate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + data.token,
+            'X-Device-Id': getDeviceId(),
+          },
+        });
+        if (migRes.ok) {
+          const migData = await migRes.json();
+          if (migData.migrated > 0) {
+            showToast('已合并 ' + migData.migrated + ' 条历史记录', 'success');
+          }
+        }
+      } catch (e) {
+        console.error('migrate error:', e);
+      }
+      // 重新加载历史记录和保存
+      setTimeout(() => {
+        historyCache = null;
+        favoritesCache = null;
+        loadHistory(true);
+        loadFavorites(true);
+      }, 100);
     } catch (e) {
       authError.textContent = e.message;
     } finally {
