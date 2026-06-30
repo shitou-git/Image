@@ -1452,7 +1452,7 @@
 </div>
 
 <script>
-  const APP_VERSION = '1.2.2';
+  const APP_VERSION = '1.2.3';
   const API_URL = 'https://lmage.chatlz.dpdns.org';
   const VIDEO_API_URL = 'https://video.chatlz.dpdns.org';
   const AUTH_API_URL = 'https://chat-app-db.chatlz.dpdns.org';
@@ -2682,8 +2682,10 @@
           await updateImage(item.id, newFav);
           if (isFavView) {
             loadFavorites(true);
+            loadHistory(true, true);
           } else {
             loadHistory(true);
+            loadFavorites(true, true);
           }
           showToast(newFav ? '已保存' : '已取消保存', 'success');
         } catch (err) {
@@ -2703,8 +2705,10 @@
           await deleteImage(item.id);
           if (isFavView) {
             loadFavorites(true);
+            loadHistory(true, true);
           } else {
             loadHistory(true);
+            loadFavorites(true, true);
           }
           showToast('已删除', 'success');
         } catch (err) {
@@ -2845,6 +2849,7 @@
           const isOnFavTab = currentRTab === 'favorites';
           loadHistory(true, !isOnHistoryTab && !isOnFavTab);
           if (isOnFavTab) loadFavorites(true);
+          else loadFavorites(true, true);
         } catch (e) {
           console.error('自动保存失败:', e);
         }
@@ -2912,6 +2917,7 @@
             const isOnFavTab = currentRTab === 'favorites';
             if (isOnHistoryTab) loadHistory(true);
             if (isOnFavTab) loadFavorites(true);
+            else loadFavorites(true, true);
           } catch (err) {
             showToast(err.message, 'error');
           }
