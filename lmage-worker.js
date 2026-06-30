@@ -192,7 +192,11 @@ async function handleGenerate(request, env) {
 
     for (const r of results) {
       if (r.error) {
-        return jsonResponse(r, 400, request);
+        // 确保 error 是字符串格式
+        const errorMsg = typeof r.error === 'string' 
+          ? r.error 
+          : (r.error.message || r.error.type || JSON.stringify(r.error));
+        return jsonResponse({ error: errorMsg }, 400, request);
       }
     }
 
