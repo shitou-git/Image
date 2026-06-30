@@ -1355,7 +1355,7 @@
     </div>
 
     <div class="left-footer">
-      @Stone || Powered by Sapiens AI ·
+      @Stone || Powered by Sapiens AI · v <span id="versionDisplayLeft"></span>
     </div>
   </div>
 
@@ -1368,7 +1368,6 @@
         <button class="result-tab" data-rtab="favorites">保存</button>
       </div>
       <div class="history-storage-info" id="storageInfo" style="display:none;"></div>
-      <div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:8px;opacity:0.6;">v <span id="versionDisplay"></span></div>
     </div>
     <div class="right-placeholder" id="placeholder">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
@@ -1393,7 +1392,7 @@
   </div>
 
   <div class="global-footer">
-    @Stone || Powered by Sapiens AI ·
+    @Stone || Powered by Sapiens AI · v <span id="versionDisplay"></span>
   </div>
 </div>
 
@@ -2459,7 +2458,9 @@
   const placeholderText = document.getElementById('placeholderText');
   const storageInfo = document.getElementById('storageInfo');
   const versionDisplay = document.getElementById('versionDisplay');
+  const versionDisplayLeft = document.getElementById('versionDisplayLeft');
   if (versionDisplay) versionDisplay.textContent = APP_VERSION;
+  if (versionDisplayLeft) versionDisplayLeft.textContent = APP_VERSION;
 
   resultTabs.forEach(tab => {
     tab.addEventListener('click', () => {
