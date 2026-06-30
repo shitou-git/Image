@@ -498,31 +498,36 @@ async function handleSaveImage(db, userId, body, request) {
     return jsonResponse({ error: '缺少必填字段: prompt, image_b64' }, 400, request);
   }
 
-  const id = genId();
-  const ts = nowTs();
+  try {
+    const id = genId();
+    const ts = nowTs();
 
-  await db.prepare(`
-    INSERT INTO generated_images (id, user_id, prompt, size, style, image_b64, model, created_at)
-    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
-  `).bind(id, userId, prompt, size || '', style || '', image_b64, model || '', ts).run();
+    await db.prepare(`
+      INSERT INTO generated_images (id, user_id, prompt, size, style, image_b64, model, created_at)
+      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+    `).bind(id, userId, prompt, size || '', style || '', image_b64, model || '', ts).run();
 
-  const HISTORY_LIMIT = 10;
-  const countResult = await db.prepare(
-    'SELECT COUNT(*) as total FROM generated_images WHERE user_id = ?1'
-  ).bind(userId).first();
-  const total = countResult?.total || 0;
-  if (total > HISTORY_LIMIT) {
-    const excess = total - HISTORY_LIMIT;
-    const allOldIds = await db.prepare(
-      'SELECT id FROM generated_images WHERE user_id = ?1 AND is_favorite = 0 ORDER BY created_at ASC'
-    ).bind(userId).all();
-    const toDelete = (allOldIds.results || []).slice(0, excess);
-    for (const row of toDelete) {
-      await db.prepare('DELETE FROM generated_images WHERE id = ?1').bind(row.id).run();
+    const HISTORY_LIMIT = 10;
+    const countResult = await db.prepare(
+      'SELECT COUNT(*) as total FROM generated_images WHERE user_id = ?1 AND is_favorite = 0'
+    ).bind(userId).first();
+    const total = countResult?.total || 0;
+    if (total > HISTORY_LIMIT) {
+      const excess = total - HISTORY_LIMIT;
+      const allOldIds = await db.prepare(
+        'SELECT id FROM generated_images WHERE user_id = ?1 AND is_favorite = 0 ORDER BY created_at ASC'
+      ).bind(userId).all();
+      const toDelete = (allOldIds.results || []).slice(0, excess);
+      for (const row of toDelete) {
+        await db.prepare('DELETE FROM generated_images WHERE id = ?1').bind(row.id).run();
+      }
     }
-  }
 
-  return jsonResponse({ id, created_at: ts }, 200, request);
+    return jsonResponse({ id, created_at: ts }, 200, request);
+  } catch (e) {
+    console.error('handleSaveImage error:', e);
+    return jsonResponse({ error: '保存失败: ' + e.message }, 500, request);
+  }
 }
 
 async function handleListImages(db, userId, url, request) {
@@ -547,6 +552,9 @@ async function handleListImages(db, userId, url, request) {
   if (favorite === '1') {
     countSql += ' AND is_favorite = 1';
     listSql += ' AND is_favorite = 1';
+  } else {
+    countSql += ' AND is_favorite = 0';
+    listSql += ' AND is_favorite = 0';
   }
 
   listSql += ' ORDER BY created_at DESC LIMIT ?' + (params.length + 1) + ' OFFSET ?' + (params.length + 2);
