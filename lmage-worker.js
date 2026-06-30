@@ -163,7 +163,6 @@ async function handleGenerate(request, env) {
     };
 
     if (image && image.length > 0) {
-      agnesBody.image = image;
       agnesBody.extra_body = {
         image,
         response_format: 'b64_json',
@@ -175,7 +174,7 @@ async function handleGenerate(request, env) {
         agnesBody.extra_body.image_weight = image_weight;
       }
     } else {
-      agnesBody.response_format = 'b64_json';
+      agnesBody.return_base64 = true;
     }
 
     const reqs = Array.from({ length: count }, () =>
