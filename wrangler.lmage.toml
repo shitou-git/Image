@@ -8,3 +8,8 @@ compatibility_date = "2024-01-01"
 binding = "DB"
 database_name = "chatjl"
 database_id = "fc07c223-10b4-4a98-938d-410c8d18da1b"
+
+# 绑定 KV 存储
+[[kv_namespaces]]
+binding = "IMAGE_GALLERY"
+id = "a7300b1881eb4409957e93b9492379db"

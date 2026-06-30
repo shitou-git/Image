@@ -8,3 +8,8 @@ compatibility_date = "2024-01-01"
 binding = "DB"
 database_name = "chat-app-db"
 database_id = "46260ff3-1d5a-459a-a8d8-33d329d18176"
+
+# 绑定 KV 存储 (用于管理 token)
+[[kv_namespaces]]
+binding = "ADMIN_TOKENS"
+id = "e5df7fcd479343c0b0f8cbf5e8870854"
