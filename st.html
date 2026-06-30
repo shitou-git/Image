@@ -1451,7 +1451,7 @@
 </div>
 
 <script>
-  const APP_VERSION = '1.4.0';
+  const APP_VERSION = '1.4.1';
   const API_URL = 'https://chat-app-db.chatlz.dpdns.org';
   const IMAGE_API_URL = 'https://lmage.chatlz.dpdns.org';
   const VIDEO_API_URL = 'https://video.chatlz.dpdns.org';
@@ -2798,6 +2798,8 @@
 
       const items = data.data || [];
       if (items.length === 0) throw new Error('未获取到图像数据');
+
+      console.log('生成图片响应: 张数=', items.length, '第一张有id=', !!items[0]?.id, '第一张is_favorite=', items[0]?.is_favorite);
 
       grid.innerHTML = '';
       const actualN = Math.min(items.length, n);

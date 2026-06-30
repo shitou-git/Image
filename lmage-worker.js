@@ -268,21 +268,32 @@ async function handleGenerate(request, env) {
 
     // 自动保存到历史记录（调用 chat-app-db worker）
     console.log('=== 开始自动保存 ===');
+    console.log('Auto-save: 请求URL:', CHAT_APP_DB_URL + '/api/images');
     const db = env && env.DB ? env.DB : null;
     const userId = await getUserId(request, db);
-    console.log('Auto-save: userId =', userId);
+    console.log('Auto-save: lmage本地计算userId =', userId);
     const headers = { 'Content-Type': 'application/json' };
     const deviceId = request.headers ? request.headers.get('X-Device-Id') : null;
     const authHeader = request.headers ? request.headers.get('Authorization') : null;
-    console.log('Auto-save: deviceId =', deviceId, 'authHeader =', authHeader ? authHeader.substring(0, 20) + '...' : null);
-    if (deviceId) headers['X-Device-Id'] = deviceId;
-    else if (authHeader) headers['Authorization'] = authHeader;
-    console.log('Auto-save: 保存请求头:', JSON.stringify(headers));
+    console.log('Auto-save: 原始请求 deviceId =', deviceId ? '有(' + deviceId.substring(0, 10) + '...)' : '无');
+    console.log('Auto-save: 原始请求 authHeader =', authHeader ? '有(' + authHeader.substring(0, 20) + '...)' : '无');
+    if (deviceId) {
+      headers['X-Device-Id'] = deviceId;
+      console.log('Auto-save: 使用 X-Device-Id 认证');
+    } else if (authHeader) {
+      headers['Authorization'] = authHeader;
+      console.log('Auto-save: 使用 Authorization 认证');
+    } else {
+      console.log('Auto-save: 警告！没有找到任何认证信息！');
+    }
+    console.log('Auto-save: 保存请求头 keys:', Object.keys(headers));
 
     let itemIdx = 0;
+    let saveSuccessCount = 0;
+    let saveFailCount = 0;
     for (const item of merged.data) {
       if (item.b64_json) {
-        console.log('Auto-save: 准备保存图片, b64长度:', item.b64_json.length);
+        console.log('Auto-save: 准备保存第', itemIdx + 1, '张图片, b64长度:', item.b64_json.length);
         try {
           const saveRes = await fetch(CHAT_APP_DB_URL + '/api/images', {
             method: 'POST',
@@ -296,25 +307,28 @@ async function handleGenerate(request, env) {
             })
           });
           const saveData = await saveRes.json();
-          console.log('Auto-save: 保存结果:', JSON.stringify(saveData));
+          console.log('Auto-save: 保存响应状态:', saveRes.status, saveRes.ok);
+          console.log('Auto-save: 保存结果:', JSON.stringify(saveData).substring(0, 200));
           if (saveRes.ok && saveData.id) {
-            console.log('Auto-saved to history:', saveData);
-            // 把保存后的ID附加到返回数据中，方便前端使用
+            console.log('Auto-save: 第', itemIdx + 1, '张保存成功，id:', saveData.id);
+            saveSuccessCount++;
             item.id = saveData.id;
             item.created_at = saveData.created_at;
             item.is_favorite = 0;
           } else {
-            console.error('Auto-save failed:', saveData);
+            console.error('Auto-save: 第', itemIdx + 1, '张保存失败:', saveData?.error || saveRes.statusText);
+            saveFailCount++;
           }
         } catch (e) {
-          console.error('Auto-save error:', e);
+          console.error('Auto-save: 第', itemIdx + 1, '张保存异常:', e.message, e.stack);
+          saveFailCount++;
         }
       } else {
-        console.log('Auto-save: 跳过, 无b64_json');
+        console.log('Auto-save: 跳过第', itemIdx + 1, '张, 无b64_json');
       }
       itemIdx++;
     }
-    console.log('=== 自动保存完成 ===');
+    console.log('=== 自动保存完成: 成功', saveSuccessCount, '张, 失败', saveFailCount, '张 ===');
 
     return jsonResponse(merged, 200, request);
   } catch (err) {
