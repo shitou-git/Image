@@ -1452,7 +1452,7 @@
 </div>
 
 <script>
-  const APP_VERSION = '1.2.1';
+  const APP_VERSION = '1.2.2';
   const API_URL = 'https://lmage.chatlz.dpdns.org';
   const VIDEO_API_URL = 'https://video.chatlz.dpdns.org';
   const AUTH_API_URL = 'https://chat-app-db.chatlz.dpdns.org';
@@ -2840,8 +2840,11 @@
               }
             }
           }
-          // 自动保存完成后静默刷新历史记录缓存
-          loadHistory(true, true);
+          // 自动保存完成后刷新历史记录缓存
+          const isOnHistoryTab = currentRTab === 'history';
+          const isOnFavTab = currentRTab === 'favorites';
+          loadHistory(true, !isOnHistoryTab && !isOnFavTab);
+          if (isOnFavTab) loadFavorites(true);
         } catch (e) {
           console.error('自动保存失败:', e);
         }
@@ -2904,6 +2907,11 @@
             saveBtn.querySelector('svg').setAttribute('fill', 'currentColor');
             saveBtn.title = '已保存';
             showToast('已永久保存', 'success');
+            // 保存后刷新历史记录和保存列表
+            const isOnHistoryTab = currentRTab === 'history';
+            const isOnFavTab = currentRTab === 'favorites';
+            if (isOnHistoryTab) loadHistory(true);
+            if (isOnFavTab) loadFavorites(true);
           } catch (err) {
             showToast(err.message, 'error');
           }
