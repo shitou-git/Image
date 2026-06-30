@@ -71,7 +71,7 @@ async function verifyPassword(password, storedHash) {
 // 安全的 Admin Token 管理
 // ========================================================================
 async function generateAdminToken() {
-  const bytes = crypto.getRandomValues(32);
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
   return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
@@ -713,20 +713,16 @@ export default {
         const token = auth.substring(7);
         if (!token) return false;
         
-        // 如果没有 KV 存储，回退到简单验证（仅用于开发环境）
-        // 生产环境必须配置 ADMIN_TOKENS KV namespace
         if (!env.ADMIN_TOKENS) {
-          // 无 KV 时，拒绝所有 admin 请求（安全优先）
           return false;
         }
         
         try {
           const tokens = JSON.parse(await env.ADMIN_TOKENS.get('admin_tokens') || '[]');
           const validTokens = tokens.filter(t => t.expires > Date.now());
-          // 验证 token
           for (const entry of validTokens) {
-            // 简单的 token 存在性检查
-            if (token.length === 64) { // 我们的 token 是 64 字符的 hex
+            const isValid = await verifyPassword(token, entry.hash);
+            if (isValid) {
               return true;
             }
           }
