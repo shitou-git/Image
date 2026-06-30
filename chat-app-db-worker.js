@@ -580,6 +580,25 @@ async function handleGetImage(db, userId, imageId, request) {
   return jsonResponse(img, 200, request);
 }
 
+async function handleGetImageBinary(db, imageId, request) {
+  const img = await db.prepare(
+    'SELECT image_b64 FROM generated_images WHERE id = ?1'
+  ).bind(imageId).first();
+  if (!img || !img.image_b64) {
+    return new Response('Not Found', { status: 404 });
+  }
+  const b64 = img.image_b64;
+  const binary = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  return new Response(binary, {
+    status: 200,
+    headers: {
+      'Content-Type': 'image/png',
+      'Cache-Control': 'public, max-age=86400',
+      'Access-Control-Allow-Origin': request.headers.get('Origin') || '*',
+    }
+  });
+}
+
 async function handleDeleteImage(db, userId, imageId, request) {
   const img = await db.prepare(
     'SELECT id FROM generated_images WHERE id = ?1 AND user_id = ?2'
@@ -753,6 +772,10 @@ export default {
         if (request.method === 'PUT') {
           return handleUpdateImage(db, userId, iid, body, request);
         }
+      }
+      const imgBinaryMatch = path.match(/^\/api\/images\/([^\/]+)\/image$/);
+      if (imgBinaryMatch && request.method === 'GET') {
+        return handleGetImageBinary(db, imgBinaryMatch[1], request);
       }
 
       // ── 迁移历史记录到登录用户 ─
