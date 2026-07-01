@@ -1074,7 +1074,7 @@ async function handleAdminAPI(db, path, method, body, request) {
 
     let countSql = 'SELECT COUNT(*) as total FROM generated_images WHERE 1=1';
     let listSql = `
-      SELECT gi.*, u.email, u.nickname
+      SELECT gi.id, gi.user_id, gi.prompt, gi.size, gi.style, gi.is_favorite, gi.model, gi.created_at, u.email, u.nickname
       FROM generated_images gi
       LEFT JOIN users u ON gi.user_id = u.id
       WHERE 1=1
