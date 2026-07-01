@@ -1067,7 +1067,7 @@ async function handleAdminAPI(db, path, method, body, request) {
   }
 
   // ── 管理员：图片列表 ──
-  if (path.startsWith('/api/admin/images') && method === 'GET') {
+  if (path === '/api/admin/images' && method === 'GET') {
     const page = parseInt(url.searchParams.get('page') || '1', 10);
     const limit = parseInt(url.searchParams.get('limit') || '50', 10);
     const offset = (page - 1) * limit;
@@ -1107,6 +1107,20 @@ async function handleAdminAPI(db, path, method, body, request) {
       total: countResult?.total || 0,
       page, limit,
     }, 200, request);
+  }
+
+  // ── 管理员：获取单张图片详情 ──
+  const imageDetailMatch = path.match(/^\/api\/admin\/images\/([^\/]+)$/);
+  if (imageDetailMatch && method === 'GET') {
+    const imageId = imageDetailMatch[1];
+    const img = await db.prepare(`
+      SELECT gi.*, u.email, u.nickname
+      FROM generated_images gi
+      LEFT JOIN users u ON gi.user_id = u.id
+      WHERE gi.id = ?1
+    `).bind(imageId).first();
+    if (!img) return jsonResponse({ error: '图片不存在' }, 404, request);
+    return jsonResponse(img, 200, request);
   }
 
   // ── 管理员：删除图片 ──
@@ -2023,16 +2037,7 @@ function openImgPreview(imgData) {
   previewImageData = imgData;
   var content = document.getElementById('imgPreviewContent');
   var info = document.getElementById('imgPreviewInfo');
-  var b64 = imgData.image_b64 || '';
-  var src = b64.startsWith('data:') ? b64 : 'data:image/png;base64,' + b64;
-  content.innerHTML = '';
-  var img = document.createElement('img');
-  img.src = src;
-  img.style.cssText = 'max-width:100%;max-height:60vh;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.5);';
-  img.onerror = function() {
-    content.innerHTML = '<div style="color:#f87171;padding:40px;">图片加载失败</div>';
-  };
-  content.appendChild(img);
+  content.innerHTML = '<div style="color:#94a3b8;padding:40px;text-align:center;">加载中...</div>';
   var userInfo = imgData.email ? imgData.email : ('ID: ' + imgData.user_id.slice(0, 16) + '...');
   info.innerHTML = '<b>用户：</b>' + userInfo + '<br>' +
     '<b>提示词：</b>' + (imgData.prompt || '-') + '<br>' +
@@ -2041,6 +2046,26 @@ function openImgPreview(imgData) {
     '<b>时间：</b>' + formatTime(imgData.created_at) + '<br>' +
     '<b>ID：</b>' + imgData.id;
   document.getElementById('imgPreviewModal').classList.add('show');
+
+  apiGet('/images/' + imgData.id).then(function(fullData) {
+    previewImageData = fullData;
+    var b64 = fullData.image_b64 || '';
+    if (!b64) {
+      content.innerHTML = '<div style="color:#f87171;padding:40px;text-align:center;">图片数据不存在</div>';
+      return;
+    }
+    var src = b64.startsWith('data:') ? b64 : 'data:image/png;base64,' + b64;
+    content.innerHTML = '';
+    var img = document.createElement('img');
+    img.src = src;
+    img.style.cssText = 'max-width:100%;max-height:60vh;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.5);';
+    img.onerror = function() {
+      content.innerHTML = '<div style="color:#f87171;padding:40px;text-align:center;">图片加载失败</div>';
+    };
+    content.appendChild(img);
+  }).catch(function(e) {
+    content.innerHTML = '<div style="color:#f87171;padding:40px;text-align:center;">加载失败：' + e.message + '</div>';
+  });
 }
 
 function closeImgPreview() {
