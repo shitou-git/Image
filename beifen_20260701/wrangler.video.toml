@@ -1,0 +1,9 @@
+# Video Worker - 视频生成
+name = "video"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# 绑定 KV 存储 (用于速率限制)
+[[kv_namespaces]]
+binding = "VIDEO_KV"
+id = "4a1ca1977207473dae84b93afde7df05"
