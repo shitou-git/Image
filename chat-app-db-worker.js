@@ -159,12 +159,18 @@ async function initDB(db) {
         prompt TEXT NOT NULL,
         size TEXT NOT NULL,
         style TEXT,
-        image_b64 TEXT NOT NULL,
+        image_b64 TEXT,
         is_favorite INTEGER NOT NULL DEFAULT 0,
         model TEXT,
         created_at INTEGER NOT NULL
       )
     `).run();
+
+    try {
+      await db.prepare(`ALTER TABLE generated_images ALTER COLUMN image_b64 DROP NOT NULL`).run();
+    } catch (e) {
+      console.log('ALTER TABLE image_b64 DROP NOT NULL:', e.message);
+    }
 
     try {
       await db.prepare(`CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)`).run();

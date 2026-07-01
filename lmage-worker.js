@@ -297,8 +297,8 @@ async function handleSaveImage(db, kv, body, request) {
   if (db) {
     try {
       await db.prepare(`
-        INSERT INTO generated_images (id, user_id, prompt, size, style, model, created_at, is_favorite)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0)
+        INSERT INTO generated_images (id, user_id, prompt, size, style, image_b64, model, created_at, is_favorite)
+        VALUES (?1, ?2, ?3, ?4, ?5, '', ?6, ?7, 0)
       `).bind(id, userId, prompt, size || '', style || '', model || '', ts).run();
 
       const HISTORY_LIMIT = 10;
