@@ -873,7 +873,7 @@ export default {
         if (!isAdmin) {
           return jsonResponse({ error: '未授权' }, 401, request);
         }
-        return handleAdminAPI(db, path, request.method, body, request);
+        return handleAdminAPI(db, env, path, request.method, body, request);
       }
 
       return jsonResponse({ error: 'Not found: ' + path }, 404, request);
@@ -890,7 +890,7 @@ export default {
 // 管理后台 API
 // ============================================================
 
-async function handleAdminAPI(db, path, method, body, request) {
+async function handleAdminAPI(db, env, path, method, body, request) {
   const url = new URL(request.url);
   const userId = url.searchParams.get('user_id');
   const startDate = url.searchParams.get('start_date');
@@ -1120,6 +1120,17 @@ async function handleAdminAPI(db, path, method, body, request) {
       WHERE gi.id = ?1
     `).bind(imageId).first();
     if (!img) return jsonResponse({ error: '图片不存在' }, 404, request);
+
+    const kv = env && env.IMAGE_GALLERY ? env.IMAGE_GALLERY : null;
+    if (kv && (!img.image_b64 || img.image_b64.length < 100)) {
+      try {
+        const kvImg = await kv.get('img:' + imageId);
+        if (kvImg) img.image_b64 = kvImg;
+      } catch (e) {
+        console.error('KV get image error:', e);
+      }
+    }
+
     return jsonResponse(img, 200, request);
   }
 
