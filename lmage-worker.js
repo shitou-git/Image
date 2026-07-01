@@ -297,9 +297,9 @@ async function handleSaveImage(db, kv, body, request) {
   if (db) {
     try {
       await db.prepare(`
-        INSERT INTO generated_images (id, user_id, prompt, size, style, image_b64, model, created_at)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
-      `).bind(id, userId, prompt, size || '', style || '', image_b64, model || '', ts).run();
+        INSERT INTO generated_images (id, user_id, prompt, size, style, model, created_at, is_favorite)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0)
+      `).bind(id, userId, prompt, size || '', style || '', model || '', ts).run();
 
       const HISTORY_LIMIT = 10;
       const countResult = await db.prepare(
@@ -314,6 +314,17 @@ async function handleSaveImage(db, kv, body, request) {
         const toDelete = (allOldIds.results || []).slice(0, excess);
         for (const row of toDelete) {
           await db.prepare('DELETE FROM generated_images WHERE id = ?1').bind(row.id).run();
+          if (kv) {
+            try { await kv.delete(KV_PREFIX + row.id); } catch (e) {}
+          }
+        }
+      }
+
+      if (kv) {
+        try {
+          await kv.put(KV_PREFIX + id, image_b64);
+        } catch (e) {
+          console.error('KV save image error:', e);
         }
       }
 
@@ -378,9 +389,7 @@ async function handleListImages(db, kv, url, request) {
   if (db) {
     try {
       const offset = (page - 1) * limit;
-      const selectFields = withImage
-        ? 'id, user_id, prompt, size, style, is_favorite, model, created_at, image_b64'
-        : 'id, user_id, prompt, size, style, is_favorite, model, created_at';
+      const selectFields = 'id, user_id, prompt, size, style, is_favorite, model, created_at';
 
       let countSql = 'SELECT COUNT(*) as total FROM generated_images WHERE user_id = ?1';
       let listSql = `SELECT ${selectFields} FROM generated_images WHERE user_id = ?1`;
@@ -400,8 +409,24 @@ async function handleListImages(db, kv, url, request) {
       const countResult = await db.prepare(countSql).bind(...params.slice(0, 1)).first();
       const listResult = await db.prepare(listSql).bind(...params).all();
 
+      let items = listResult.results || [];
+
+      if (withImage && kv) {
+        items = await Promise.all(items.map(async item => {
+          try {
+            const b64 = await kv.get(KV_PREFIX + item.id);
+            if (b64) {
+              item.image_b64 = b64;
+            }
+          } catch (e) {
+            console.error('KV get image error:', e);
+          }
+          return item;
+        }));
+      }
+
       return jsonResponse({
-        items: listResult.results || [],
+        items,
         total: countResult?.total || 0,
         page, limit,
         storage: 'd1',
@@ -460,9 +485,21 @@ async function handleGetImage(db, kv, id, request) {
   if (db) {
     try {
       const img = await db.prepare(
-        'SELECT * FROM generated_images WHERE id = ?1 AND (user_id = ?2 OR user_id = ?3)'
+        'SELECT id, user_id, prompt, size, style, is_favorite, model, created_at FROM generated_images WHERE id = ?1 AND (user_id = ?2 OR user_id = ?3)'
       ).bind(id, userId, 'public').first();
       if (!img) return jsonResponse({ error: 'Image not found' }, 404, request);
+
+      if (kv) {
+        try {
+          const b64 = await kv.get(KV_PREFIX + id);
+          if (b64) {
+            img.image_b64 = b64;
+          }
+        } catch (e) {
+          console.error('KV get image error:', e);
+        }
+      }
+
       return jsonResponse(img, 200, request);
     } catch (e) {
       console.error('DB get error:', e);
@@ -492,6 +529,11 @@ async function handleDeleteImage(db, kv, id, request) {
       ).bind(id, userId, 'public').first();
       if (!img) return jsonResponse({ error: 'Image not found' }, 404, request);
       await db.prepare('DELETE FROM generated_images WHERE id = ?1').bind(id).run();
+
+      if (kv) {
+        try { await kv.delete(KV_PREFIX + id); } catch (e) {}
+      }
+
       return jsonResponse({ ok: true }, 200, request);
     } catch (e) {
       console.error('DB delete error:', e);
