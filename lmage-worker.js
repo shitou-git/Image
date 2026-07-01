@@ -244,7 +244,20 @@ async function getUserId(request, db) {
   const authHeader = request && request.headers ? request.headers.get('Authorization') : null;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.substring(7);
-    // 优先调用 chat-app-db worker 验证 token，获取真实 user_id
+    // 优先查本地数据库的 sessions 表（数据库已统一，本地查询更快更可靠）
+    if (db) {
+      try {
+        const session = await db.prepare(
+          'SELECT user_id FROM sessions WHERE id = ?1 AND expires_at > ?2'
+        ).bind(token, Date.now()).first();
+        if (session && session.user_id) {
+          return session.user_id;
+        }
+      } catch (e) {
+        console.error('Session lookup error:', e);
+      }
+    }
+    // 本地查不到时，调用 chat-app-db worker 验证 token 作为兜底
     try {
       const verifyRes = await fetch(CHAT_APP_DB_URL + '/api/auth/me', {
         method: 'GET',
@@ -258,19 +271,6 @@ async function getUserId(request, db) {
       }
     } catch (e) {
       console.error('Token verification via chat-app-db failed:', e.message);
-    }
-    // 如果验证失败，回退到查本地数据库
-    if (db) {
-      try {
-        const session = await db.prepare(
-          'SELECT user_id FROM sessions WHERE id = ?1 AND expires_at > ?2'
-        ).bind(token, Date.now()).first();
-        if (session && session.user_id) {
-          return session.user_id;
-        }
-      } catch (e) {
-        console.error('Session lookup error:', e);
-      }
     }
     // 都失败时回退到 token 本身（兼容旧数据）
     return token;
@@ -303,12 +303,11 @@ async function handleSaveImage(db, kv, body, request) {
 
       const HISTORY_LIMIT = 10;
       const countResult = await db.prepare(
-        'SELECT COUNT(*) as total FROM generated_images WHERE user_id = ?1'
+        'SELECT COUNT(*) as total FROM generated_images WHERE user_id = ?1 AND is_favorite = 0'
       ).bind(userId).first();
       const total = countResult?.total || 0;
       if (total > HISTORY_LIMIT) {
         const excess = total - HISTORY_LIMIT;
-        // 先获取所有未收藏的记录，然后在代码中选择要删除的
         const allOldIds = await db.prepare(
           'SELECT id FROM generated_images WHERE user_id = ?1 AND is_favorite = 0 ORDER BY created_at ASC'
         ).bind(userId).all();
@@ -346,11 +345,11 @@ async function handleSaveImage(db, kv, body, request) {
 
       const HISTORY_LIMIT = 10;
       const userItems = index.filter(i => !i.user_id || i.user_id === userId || i.user_id === 'public');
-      if (userItems.length > HISTORY_LIMIT) {
-        const nonFavSorted = userItems
-          .filter(i => !i.is_favorite)
+      const nonFavItems = userItems.filter(i => !i.is_favorite);
+      if (nonFavItems.length > HISTORY_LIMIT) {
+        const nonFavSorted = nonFavItems
           .sort((a, b) => a.created_at - b.created_at);
-        const excess = userItems.length - HISTORY_LIMIT;
+        const excess = nonFavItems.length - HISTORY_LIMIT;
         const toDelete = nonFavSorted.slice(0, excess);
         for (const item of toDelete) {
           try { await kv.delete(KV_PREFIX + item.id); } catch (e) {}
