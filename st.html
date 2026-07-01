@@ -2586,7 +2586,10 @@
       const data = await listImages(1, 50, true, true);
       const items = data.items || [];
       favoritesCache = items;
-      if (silent && !favoritesForcePending) return;
+      if (silent) {
+        favoritesLoading = false;
+        return;
+      }
       if (items.length === 0 && !favoritesForcePending) {
         placeholder.style.display = '';
         placeholderText.textContent = '暂无保存的图片';
@@ -2598,7 +2601,10 @@
         renderHistoryGrid(favGrid, items, true);
       }
     } catch (e) {
-      if (silent && !favoritesForcePending) return;
+      if (silent) {
+        favoritesLoading = false;
+        return;
+      }
       if (!favoritesForcePending) {
         placeholder.style.display = '';
         placeholderText.textContent = '加载失败: ' + e.message;
@@ -2896,12 +2902,13 @@
             saveBtn.querySelector('svg').setAttribute('fill', 'currentColor');
             saveBtn.title = '已保存';
             showToast('已永久保存', 'success');
-            const isOnHistoryTab = currentRTab === 'history';
-            const isOnFavTab = currentRTab === 'favorites';
-            if (isOnHistoryTab) loadHistory(true);
-            else loadHistory(true, true);
-            if (isOnFavTab) loadFavorites(true);
-            else loadFavorites(true, true);
+            // 无论在哪个标签页，都强制刷新缓存
+            loadHistory(true, true);
+            loadFavorites(true, true);
+            // 如果用户在历史记录标签页，刷新UI
+            if (currentRTab === 'history') loadHistory(true);
+            // 如果用户在保存标签页，刷新UI
+            if (currentRTab === 'favorites') loadFavorites(true);
           } catch (err) {
             showToast(err.message, 'error');
           }
