@@ -160,21 +160,19 @@ async function handleGenerate(request, env) {
       model: 'agnes-image-2.1-flash',
       prompt,
       size,
+      extra_body: {
+        response_format: 'b64_json',
+      },
     };
 
     if (image && image.length > 0) {
-      agnesBody.extra_body = {
-        image,
-        response_format: 'b64_json',
-      };
+      agnesBody.extra_body.image = image;
       if (negative_prompt) {
         agnesBody.extra_body.negative_prompt = negative_prompt;
       }
       if (image_weight !== undefined && image_weight !== null) {
         agnesBody.extra_body.image_weight = image_weight;
       }
-    } else {
-      agnesBody.return_base64 = true;
     }
 
     const reqs = Array.from({ length: count }, () =>
@@ -192,7 +190,6 @@ async function handleGenerate(request, env) {
 
     for (const r of results) {
       if (r.error) {
-        // 确保 error 是字符串格式
         const errorMsg = typeof r.error === 'string' 
           ? r.error 
           : (r.error.message || r.error.type || JSON.stringify(r.error));
@@ -201,7 +198,10 @@ async function handleGenerate(request, env) {
     }
 
     const allData = results.flatMap(r => r.data || []);
-    const merged = { created: Math.floor(Date.now() / 1000), data: allData };
+    const merged = { 
+      created: Math.floor(Date.now() / 1000), 
+      data: allData 
+    };
 
     return jsonResponse(merged, 200, request);
   } catch (err) {
