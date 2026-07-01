@@ -1067,12 +1067,12 @@ async function handleAdminAPI(db, path, method, body, request) {
   }
 
   // ── 管理员：图片列表 ──
-  if (path === '/api/admin/images' && method === 'GET') {
+  if (path.startsWith('/api/admin/images') && method === 'GET') {
     const page = parseInt(url.searchParams.get('page') || '1', 10);
     const limit = parseInt(url.searchParams.get('limit') || '50', 10);
     const offset = (page - 1) * limit;
 
-    let countSql = 'SELECT COUNT(*) as total FROM generated_images WHERE 1=1';
+    let countSql = 'SELECT COUNT(*) as total FROM generated_images gi WHERE 1=1';
     let listSql = `
       SELECT gi.id, gi.user_id, gi.prompt, gi.size, gi.style, gi.is_favorite, gi.model, gi.created_at, u.email, u.nickname
       FROM generated_images gi
