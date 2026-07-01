@@ -320,6 +320,7 @@ async function handleSaveImage(db, kv, body, request) {
       return jsonResponse({ id, created_at: ts }, 200, request);
     } catch (e) {
       console.error('DB save error:', e);
+      return jsonResponse({ error: 'DB保存失败: ' + e.message }, 500, request);
     }
   }
 
