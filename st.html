@@ -1352,7 +1352,7 @@
     </div>
 
     <div class="left-footer">
-      @Stone || Powered by Sapiens AI · v<span id="versionText">1.5.0</span>
+      @Stone || Powered by Sapiens AI · v<span id="versionText">1.5.1</span>
     </div>
   </div>
 
@@ -1389,7 +1389,7 @@
   </div>
 
   <div class="global-footer">
-    @Stone || Powered by Sapiens AI · v1.5.0
+    @Stone || Powered by Sapiens AI · v1.5.1
   </div>
 </div>
 
@@ -1451,7 +1451,7 @@
   const API_URL = 'https://lmage.chatlz.dpdns.org';
   const VIDEO_API_URL = 'https://video.chatlz.dpdns.org';
   const AUTH_API_URL = 'https://chat-app-db.chatlz.dpdns.org';
-  const APP_VERSION = '1.5.0';
+  const APP_VERSION = '1.5.1';
 
   // ── DOM refs ──
   const modeTabs = document.getElementById('modeTabs');
@@ -1945,14 +1945,21 @@
         if (!b64 && item.base64) b64 = item.base64;
         if (b64) {
           allUrls.push('data:image/png;base64,' + b64);
+        } else if (item.url) {
+          allUrls.push(item.url);
         }
       });
 
       items.slice(0, n).forEach((item, idx) => {
+        let url = '';
         let b64 = item.b64_json;
         if (!b64 && item.base64) b64 = item.base64;
-        if (!b64) return;
-        const url = 'data:image/png;base64,' + b64;
+        if (b64) {
+          url = 'data:image/png;base64,' + b64;
+        } else if (item.url) {
+          url = item.url;
+        }
+        if (!url) return;
 
         const card = document.createElement('div');
         card.className = 'img-card';
@@ -2812,13 +2819,18 @@
       const allUrls = [];
       const savedItems = [];
       const savedItemIds = [];
-      items.slice(0, n).forEach(item => {
+      items.slice(0, n).forEach((item, idx) => {
+        let url = '';
         let b64 = item.b64_json;
         if (!b64 && item.base64) b64 = item.base64;
         if (b64) {
-          const url = 'data:image/png;base64,' + b64;
+          url = 'data:image/png;base64,' + b64;
+        } else if (item.url) {
+          url = item.url;
+        }
+        if (url) {
           allUrls.push(url);
-          savedItems.push({ ...item, url, b64 });
+          savedItems.push({ ...item, url, b64: b64 || null });
         }
       });
 
@@ -2829,8 +2841,19 @@
         try {
           for (let i = 0; i < savedItems.length; i++) {
             const item = savedItems[i];
-            if (item.b64) {
-              const res = await saveImage(prompt, size, styleText || '', item.b64, 'agnes-image-2.1-flash');
+            let b64 = item.b64;
+            if (!b64 && item.url && item.url.startsWith('data:image')) {
+              b64 = item.url.split(',')[1];
+            }
+            if (!b64 && item.url && !item.url.startsWith('data:image')) {
+              try {
+                b64 = await urlToBase64(item.url);
+              } catch (err) {
+                console.error('下载图片转base64失败:', err);
+              }
+            }
+            if (b64) {
+              const res = await saveImage(prompt, size, styleText || '', b64, 'agnes-image-2.1-flash');
               if (res && res.id) {
                 savedItemIds[i] = res.id;
               }
@@ -2879,7 +2902,19 @@
           e.stopPropagation();
           if (saved) return;
           try {
-            const b64 = item.b64;
+            let b64 = item.b64;
+            if (!b64 && url.startsWith('data:image')) {
+              b64 = url.split(',')[1];
+            }
+            if (!b64 && !url.startsWith('data:image')) {
+              showToast('正在准备图片数据...', 'info');
+              try {
+                b64 = await urlToBase64(url);
+              } catch (err) {
+                showToast('下载图片失败: ' + err.message, 'error');
+                return;
+              }
+            }
             if (!b64) {
               showToast('无法保存：缺少图片数据', 'error');
               return;
