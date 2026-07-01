@@ -2485,7 +2485,7 @@
       } else if (rtab === 'favorites') {
         videoResultArea.classList.add('hidden');
         storageInfo.style.display = 'none';
-        loadFavorites(true);
+        loadFavorites();
       }
     });
   });
@@ -2684,6 +2684,10 @@
         try {
           const newFav = !isFav;
           await updateImage(item.id, newFav);
+          // 同时静默更新两个缓存
+          loadHistory(true, true);
+          loadFavorites(true, true);
+          // 刷新当前标签的UI
           if (isFavView) {
             loadFavorites(true);
           } else {
@@ -2705,6 +2709,10 @@
         if (!confirm('确定删除这张图片？')) return;
         try {
           await deleteImage(item.id);
+          // 同时静默更新两个缓存
+          loadHistory(true, true);
+          loadFavorites(true, true);
+          // 刷新当前标签的UI
           if (isFavView) {
             loadFavorites(true);
           } else {
